@@ -34,6 +34,12 @@ restart, and rollback before promotion. Ardent upgrades additionally require a
 dedicated pilot, source/journal preservation, and sequential profile acceptance.
 Do not replay queued, failed, sealed, or uncertain effects during verification.
 
+Initial npm publication may use the maintainer's existing protected bootstrap
+workflow in the upstream repository, pinned to an exact Emberfold commit. Its
+credential is exposed only to publication. Cross-repository bootstrap omits
+provenance rather than attesting the wrong source repository. Subsequent releases
+use Emberfold's own workflow and trusted publishing after publisher setup.
+
 The optional Codex adapter uses the local tools-disabled stdio app-server and
 existing owner authentication. The protocol is pinned by tests and verified
 against the installed binary. Reference: [official Codex app-server documentation](https://learn.chatgpt.com/docs/app-server).

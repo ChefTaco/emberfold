@@ -18,7 +18,7 @@ for (const name of ['emberfold', 'emberfold-server', 'emberfold-cli']) {
     continue;
   }
   if (!publish) { console.log(`${name}@${version}: prepared`); continue; }
-  execFileSync('npm', ['publish', path, '--access', 'public', '--ignore-scripts', ...(process.env.GITHUB_ACTIONS === 'true' ? ['--provenance'] : [])], { stdio: 'inherit' });
+  execFileSync('npm', ['publish', path, '--access', 'public', '--ignore-scripts', ...(process.env.GITHUB_ACTIONS === 'true' && process.env.EMBERFOLD_PROVENANCE !== 'off' ? ['--provenance'] : [])], { stdio: 'inherit' });
   const actual = JSON.parse(execFileSync('npm', ['view', `@hivemagnus/${name}@${version}`, 'dist.integrity', '--json'], { encoding: 'utf8' }));
   if (actual !== integrity) throw new Error('Published integrity differs');
 }
