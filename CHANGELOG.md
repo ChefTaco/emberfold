@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Review Magnus 1.1.8 and add isolated packed-engine compatibility checks against Ardent's context tests and runtime types on both supported Node lines.
+- Refresh rollout guidance to distinguish historical authority failures from current managed-ownership restrictions.
 - Pin transitive development dependency minimatch to 11.0.1 to fix GHSA-g3hv-75wg-m249 (glob preprocessing denial of service) until upstream tooling adopts the patched major version.
 - Add regression coverage for bounded glob preprocessing through each affected tooling dependency.
 

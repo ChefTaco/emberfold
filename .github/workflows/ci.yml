@@ -12,3 +12,23 @@ jobs:
           node-version: 24.22.1
       - run: npm ci --ignore-scripts
       - run: npm run verify
+  magnus-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [24.22.1, 26.13.0]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ChefTaco/magnus
+          ref: 35b2d6ffab11e7f0dd85b46cffc70dad8f262fec
+          path: output/compatibility/magnus
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci --ignore-scripts
+      - run: npm run compat:magnus -- --source output/compatibility/magnus

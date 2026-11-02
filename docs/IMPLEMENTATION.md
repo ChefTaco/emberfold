@@ -20,8 +20,12 @@ fixtures. Production promotion requires reviewing those results. Existing
 deployments may retain a legacy runtime with a context-only integration artifact
 when replacing unrelated capabilities would widen the release scope.
 
-The initial production rollout is stopped at the managed-command admission fence:
-the fleet's enrollment authority is unavailable. No production profile has been
-upgraded, and that control is not bypassed. The isolated pilot uses synthetic data,
+The initial production rollout stopped at the managed-command admission fence.
+Its authority-unavailable receipt is historical, not a current diagnosis; recheck
+current enrollment and signed admission evidence before resuming. Managed
+ownership can forbid legacy dispatch even when the authority is healthy. No
+production-profile acceptance has been completed by this project, and the control
+is not bypassed. See [current Magnus compatibility](MAGNUS.md).
+The isolated pilot uses synthetic data,
 no enabled channels, no scheduled work, and no external tool effects. Operational
 receipts and the complete profile inventory remain private.

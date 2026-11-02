@@ -40,6 +40,9 @@ Do not deploy a failed build. Verify anonymous denial, authenticated preparation
 restart, and rollback before promotion. Ardent upgrades additionally require a
 dedicated pilot, source/journal preservation, and sequential profile acceptance.
 Do not replay queued, failed, sealed, or uncertain effects during verification.
+Check [Magnus compatibility and managed ownership](MAGNUS.md) before resuming an
+Ardent rollout after a control-plane upgrade. A healthy service or successful
+node-manager upgrade is not per-profile acceptance.
 
 Initial npm publication may use the maintainer's existing protected bootstrap
 workflow in the upstream repository, pinned to an exact Emberfold commit. Its
