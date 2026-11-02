@@ -93,11 +93,28 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
   const allowed = new Set([...request.checkpoint?.source_message_ids ?? [], ...messages.map(message => message.id)]);
   const flush = async (): Promise<void> => {
     if (!pending.length) return;
-    const output = await summarizer.summarize({ prompt: prompt(request, summary, pending), output_tokens: request.policy.summarizer_output_tokens, signal });
-    signal.throwIfAborted();
-    summary = validateSummary(JSON.parse(output) as unknown, allowed, summary);
-    if (tokenEstimate(summary) > request.policy.summary_max_tokens) throw new Error('INVALID_SUMMARY: checkpoint exceeds summary budget');
-    pending = [];
+    const basePrompt = prompt(request, summary, pending);
+    let inputPrompt = basePrompt;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const output = await summarizer.summarize({ prompt: inputPrompt, output_tokens: request.policy.summarizer_output_tokens, signal });
+      signal.throwIfAborted();
+      try {
+        const candidate = validateSummary(JSON.parse(output) as unknown, allowed, summary);
+        if (tokenEstimate(candidate) > request.policy.summary_max_tokens) throw new Error('INVALID_SUMMARY: checkpoint exceeds summary budget');
+        summary = candidate;
+        pending = [];
+        return;
+      } catch (error: unknown) {
+        if (attempt === 1) throw error;
+        inputPrompt = JSON.stringify({ ...JSON.parse(basePrompt) as object,
+          validation_error: error instanceof Error ? error.message.slice(0, 1000) : 'Invalid summary',
+          repair_instruction: 'Correct the rejected candidate. Retained prior item IDs require identical complete item bodies; changed facts require new IDs. Preserve supported corrections and unfinished work. Return only valid JSON.',
+          rejected_candidate: output });
+        const counted = await count(summarizer.renderInput?.(inputPrompt) ?? [{ role: 'user', content: inputPrompt }], [],
+          { ...(summarizer.countTokens ? { countTokens: summarizer.countTokens } : {}), signal }, request.policy.require_measured_tokens);
+        if (counted.value > request.policy.summarizer_input_tokens) throw error;
+      }
+    }
   };
   for (const message of messages) {
     const content = message.content ?? '';

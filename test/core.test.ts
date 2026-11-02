@@ -82,6 +82,18 @@ describe('portable context continuity', () => {
     expect(resolveSources(request.history, ['user-0'])[0]).toEqual(request.history[0]);
     expect(() => resolveSources(request.history, ['missing'])).toThrow('SOURCE_UNAVAILABLE');
   });
+  it('allows one bounded validation repair without accepting changed item identities', async () => {
+    const request = fixture();
+    let calls = 0;
+    const result = await prepareContext(request, { summarizer: { ...deterministicSummarizer, summarize: async input => {
+      calls++;
+      if (calls === 1) return '{"items":[]}';
+      expect(JSON.parse(input.prompt).validation_error).toBeDefined();
+      return deterministicSummarizer.summarize(input);
+    } } });
+    expect(calls).toBe(2);
+    expect(result.compacted).toBe(true);
+  });
   it('validates supersession and resolution without rewriting existing identities', () => {
     const old = { id: 'weekly', kind: 'decision' as const, text: 'Weekly', source_message_ids: ['one'], historical_status: 'historical_unverified' as const,
       epistemic_status: 'decision' as const, supersedes: [], resolves: [] };

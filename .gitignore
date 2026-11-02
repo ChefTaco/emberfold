@@ -11,3 +11,5 @@ artifacts/
 *.sqlite*
 *.local.*
 .private-terms
+.npmrc
+.ssh/
