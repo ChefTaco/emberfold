@@ -1,0 +1,10 @@
+Emberfold
+
+Contains context-fitting and checkpoint-management logic derived from Magnus / Ardent.
+Upstream: https://github.com/ChefTaco/magnus
+Extraction baseline: 372ead5d808a1c62ea0120b32800925ae27ab903
+Original source: packages/ardent/src/context.ts and context-checkpoints.ts
+Distributed under the Apache License, Version 2.0.
+
+Emberfold separates model, storage, and lifecycle interfaces and adds portable
+continuity policies, preservation controls, inspection, and evaluation tooling.

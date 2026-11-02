@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+coverage/
+output/
+artifacts/
+*.tgz
+*.tsbuildinfo
+*.sqlite*
+*.local.*
+.private-terms
