@@ -21,6 +21,9 @@
     "deploy": "node scripts/deploy.mjs",
     "release": "node scripts/release.mjs"
   },
+  "overrides": {
+    "minimatch": "11.0.1"
+  },
   "devDependencies": {
     "@types/node": "24.19.2",
     "eslint": "10.14.0",
