@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Server } from 'node:http';
+import { request as httpRequest } from 'node:http';
+import { once } from 'node:events';
 import { createEmberfoldServer } from '../packages/server/src/index.js';
 import { fixture } from './fixtures.js';
 
@@ -13,7 +15,7 @@ async function serve(config = {}) {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
-  return { url: `http://127.0.0.1:${address.port}`, logs };
+  return { url: `http://127.0.0.1:${address.port}`, logs, server };
 }
 const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 describe('authenticated stateless HTTP wrapper', () => {
@@ -47,5 +49,20 @@ describe('authenticated stateless HTTP wrapper', () => {
   it('fails startup for missing or weak authentication and invalid provider configuration', () => {
     expect(() => createEmberfoldServer({}, {})).toThrow('bearer token');
     expect(() => createEmberfoldServer({ providers: [], default_provider_id: 'missing' }, { EMBERFOLD_API_TOKEN: token })).toThrow('Default provider');
+  });
+  it('rejects overload and expires stalled request bodies without retaining capacity', async () => {
+    const { url, server } = await serve({ concurrency: 1, timeout_ms: 250 });
+    const started = once(server, 'request');
+    const stalled = httpRequest(url + '/v1/prepare', { method: 'POST', headers });
+    const expired = new Promise<number | undefined>((resolve, reject) => {
+      stalled.on('error', reject);
+      stalled.on('response', response => { response.resume(); response.on('end', () => resolve(response.statusCode)); });
+    });
+    stalled.write('{');
+    await started;
+    expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{}' })).status).toBe(429);
+    expect(await expired).toBe(504);
+    const response = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), dry_run: true }) });
+    expect(response.status).toBe(200);
   });
 });

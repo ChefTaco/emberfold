@@ -27,6 +27,9 @@ Default limits: 16 MiB request body, two concurrent requests, 120-second deadlin
 `DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_PASSWORD`. Passwords travel on
 dedicated file descriptors/stdin, never as process arguments or diagnostic output.
 `deploy`, `status`, `restart`, and `rollback` operate on an immutable image digest.
+Set optional `DEPLOY_DNS` to a trusted resolver IP when container networking needs
+private DNS. Releases snapshot the previous provider configuration and environment
+privately and restore both together with the previous image during rollback.
 Keep configuration and receipts under ignored `output/deploy/` and on the host.
 
 Do not deploy a failed build. Verify anonymous denial, authenticated preparation,
