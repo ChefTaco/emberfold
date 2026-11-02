@@ -6,6 +6,7 @@ import { publishedIntegrity } from './registry.mjs';
 const publish = process.argv.includes('--publish');
 const version = JSON.parse(await readFile('package.json', 'utf8')).version;
 if (publish && execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()) throw new Error('Commit the verified release before publishing');
+const accepted = [];
 for (const name of ['emberfold', 'emberfold-server', 'emberfold-cli']) {
   const path = `output/packages/hivemagnus-${name}-${version}.tgz`;
   const bytes = await readFile(path);
@@ -18,6 +19,11 @@ for (const name of ['emberfold', 'emberfold-server', 'emberfold-cli']) {
   }
   if (!publish) { console.log(`${name}@${version}: prepared`); continue; }
   execFileSync('npm', ['publish', path, '--access', 'public', '--ignore-scripts', ...(process.env.GITHUB_ACTIONS === 'true' && process.env.EMBERFOLD_PROVENANCE !== 'off' ? ['--provenance'] : [])], { stdio: 'inherit' });
-  const actual = await publishedIntegrity(`@hivemagnus/${name}`, version, { attempts: 18 });
+  accepted.push({ name, integrity });
+}
+for (const { name, integrity } of accepted) {
+  const actual = await publishedIntegrity(`@hivemagnus/${name}`, version, { attempts: 121 });
+  if (!actual) throw new Error(`Publication accepted for ${name}, but registry scanning remains pending; inspect availability before another publish`);
   if (actual !== integrity) throw new Error('Published integrity differs');
+  console.log(`${name}@${version}: published integrity verified`);
 }

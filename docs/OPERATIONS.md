@@ -40,6 +40,11 @@ credential is exposed only to publication. Cross-repository bootstrap omits
 provenance rather than attesting the wrong source repository. Subsequent releases
 use Emberfold's own workflow and trusted publishing after publisher setup.
 
+Registry acceptance is not installation proof: npm scans newly published packages
+before serving them. The release script submits each artifact once, then polls
+read-only integrity checks for up to twenty minutes per artifact. If scanning is
+still pending, inspect registry availability before running publication again.
+
 The optional Codex adapter uses the local tools-disabled stdio app-server and
 existing owner authentication. The protocol is pinned by tests and verified
 against the installed binary. Reference: [official Codex app-server documentation](https://learn.chatgpt.com/docs/app-server).
