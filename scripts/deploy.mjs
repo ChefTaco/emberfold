@@ -12,6 +12,8 @@ const tlsPort = Number(config.DEPLOY_TLS_PORT ?? 8097);
 for (const value of [port, tlsPort]) if (!Number.isInteger(value) || value < 1024 || value > 65535) throw new Error('Invalid deployment port');
 const dns = config.DEPLOY_DNS;
 if (dns && !isIP(dns)) throw new Error('DEPLOY_DNS must be an IP address');
+const publishedImage = config.DEPLOY_IMAGE;
+if (publishedImage && !/^ghcr\.io\/cheftaco\/emberfold@sha256:[a-f0-9]{64}$/.test(publishedImage)) throw new Error('DEPLOY_IMAGE must pin the published service image by digest');
 const remoteRoot = '"$HOME/.local/share/emberfold"';
 await mkdir('output/deploy', { recursive: true });
 const probe = `node -e ${quote(String.raw`const fs=require('fs');const root=process.env.HOME+'/.local/share/emberfold';const text=fs.readFileSync(root+'/service.env','utf8');const line=text.split('\n').find(line=>line.startsWith('EMBERFOLD_API_TOKEN='));if(!line)throw Error('Token unavailable');const token=line.slice(line.indexOf('=')+1);(async()=>{const base='http://127.0.0.1:${port}';const health=await fetch(base+'/healthz');const anonymous=await fetch(base+'/v1/prepare',{method:'POST'});const prepared=await fetch(base+'/v1/prepare',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({schema_version:1,namespace:'synthetic:deployment',instructions:'Current application policy',history:[],exchanges:[],current:[{id:'current',role:'user',content:'Synthetic deployment check'}],budget:{context_tokens:8192,output_reserve_tokens:1024}})});const body=await prepared.json();if(!health.ok||anonymous.status!==401||!prepared.ok||!body.fits)throw Error('Service verification failed');console.log(JSON.stringify({health:health.status,anonymous:anonymous.status,authenticated:prepared.status,fits:body.fits}))})().catch(()=>process.exit(1));`)}`;
@@ -61,8 +63,10 @@ if (action === 'preflight') {
     if (source.trim() !== 'https://github.com/ChefTaco/emberfold') throw new Error('Existing container is not managed by Emberfold');
     await remote(`umask 077; mkdir -p ${root}/previous && cp ${remoteRoot}/service.env ${root}/previous/service.env && cp ${remoteRoot}/service.json ${root}/previous/service.json`);
   }
-  await remote('cd ' + root + ' && printf "%s  source.tar\\n" ' + quote(archiveSha) + ' | sha256sum -c - && tar -xf source.tar && docker build --label org.opencontainers.image.revision=' + revision + ' -t emberfold:' + revision + ' . > build.log 2>&1', undefined, { timeout: 600000, diagnostic: true });
-  const image = (await remote('docker image inspect --format "{{.Id}}" emberfold:' + revision)).trim();
+  await remote('cd ' + root + ' && printf "%s  source.tar\\n" ' + quote(archiveSha) + ' | sha256sum -c - && tar -xf source.tar', undefined, { diagnostic: true });
+  if (publishedImage) await remote('docker pull ' + quote(publishedImage), undefined, { timeout: 600000, diagnostic: true });
+  else await remote('cd ' + root + ' && docker build --label org.opencontainers.image.revision=' + revision + ' -t emberfold:' + revision + ' . > build.log 2>&1', undefined, { timeout: 600000, diagnostic: true });
+  const image = (await remote('docker image inspect --format "{{.Id}}" ' + quote(publishedImage ?? 'emberfold:' + revision))).trim();
   if (!/^sha256:[a-f0-9]{64}$/.test(image)) throw new Error('Invalid built image digest');
   try {
     if (previous.trim()) await remote('docker rm -f emberfold');
@@ -74,7 +78,7 @@ if (action === 'preflight') {
     const tls = JSON.parse(beforeTls);
     if (tls.TCP?.[String(tlsPort)] && !JSON.stringify(tls.Web ?? {}).includes(`127.0.0.1:${port}`)) throw new Error('TLS port already has an unrelated route');
     await privilegedRemote(`tailscale serve --bg --https=${tlsPort} http://127.0.0.1:${port}`, { diagnostic: true });
-    const state = { revision, image, archive_sha256: archiveSha, previous_image: previous.trim() || null,
+    const state = { revision, image, artifact_reference: publishedImage ?? null, archive_sha256: archiveSha, previous_image: previous.trim() || null,
       previous_config_dir: previous.trim() ? releaseDirectory + '/previous' : null, port, tls_port: tlsPort, proof, at: new Date().toISOString() };
     await remote('umask 077; cat > ' + remoteRoot + '/release.json.next && mv ' + remoteRoot + '/release.json.next ' + remoteRoot + '/release.json', JSON.stringify(state));
     await writeFile('output/deploy/release.json', JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });

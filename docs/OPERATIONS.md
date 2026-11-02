@@ -30,6 +30,10 @@ dedicated file descriptors/stdin, never as process arguments or diagnostic outpu
 Set optional `DEPLOY_DNS` to a trusted resolver IP when container networking needs
 private DNS. Releases snapshot the previous provider configuration and environment
 privately and restore both together with the previous image during rollback.
+Set `DEPLOY_IMAGE=ghcr.io/cheftaco/emberfold@sha256:VERIFIED_DIGEST` to deploy the
+published artifact instead of building from the clean checkout. Mutable image
+tags are rejected. Receipts record both the deployment-source revision and the
+actual image ID and registry reference.
 Keep configuration and receipts under ignored `output/deploy/` and on the host.
 
 Do not deploy a failed build. Verify anonymous denial, authenticated preparation,

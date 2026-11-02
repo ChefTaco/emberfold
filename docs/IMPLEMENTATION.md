@@ -9,7 +9,7 @@
 - [x] Public source and all three npm 0.1.0 artifacts published with matching integrity.
 - [x] Live service authentication, model-backed preparation, and restart verified.
 - [x] Dedicated Ardent pilot: real compaction, continuation, restart, exact source recovery, and previous-reader rollback.
-- [ ] Published service-image digest verified and release rollback acceptance completed.
+- [x] Public service-image digest verified; image and configuration rollback pass.
 - [ ] Existing production profiles upgraded sequentially with individual acceptance.
 
 Operational receipts belong under ignored `output/`, never in public history.
