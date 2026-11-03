@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ChefTaco/magnus
-          ref: 35b2d6ffab11e7f0dd85b46cffc70dad8f262fec
+          ref: 1f2473112771abdbc1d5288188abfe681c045142
           path: output/compatibility/magnus
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1

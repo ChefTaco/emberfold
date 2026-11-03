@@ -2,11 +2,13 @@
 
 ## Reviewed consumer
 
-Magnus 1.1.8 (`35b2d6ffab11e7f0dd85b46cffc70dad8f262fec`) still declares
+Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`) still declares
 `@hivemagnus/emberfold` exactly `0.1.0`. Its context fitting, checkpoint storage
-adapter, policy pinning, SQLite schema, and context regression tests are unchanged
-from the original integration. Subsequent Ardent changes add A2A admission and
-rate limits; these remain host responsibilities and require no engine API change.
+adapter, policy pinning, and additive SQLite metadata retain the original engine
+contract. Managed context-only adoption now preserves extended legacy runtimes
+without requiring a wholesale public Ardent installation. Enrollment, A2A
+admission, rate limits, and lifecycle coordination remain host responsibilities;
+they require no engine API change.
 
 The library is a direct dependency. Neither Ardent startup nor context preparation
 depends on the optional Emberfold HTTP service. Keep policy loading, caller and
@@ -52,6 +54,21 @@ recovery evidence. Those features concern Magnus node-manager upgrades, not
 proof that an Ardent profile has adopted Emberfold. A draining node still needs
 its real participant evidence; a missing receipt or lease expiry is never enough
 to claim that an external effect did not happen.
+
+Magnus 1.1.12 provides `context-stage`, `context-adopt`, and `context-rollback`
+through its managed Ardent API. Full-node enrollment retains node-wide ownership
+while using the native Ardent coordination fence; an Ardent-only scope is not
+implicitly granted. Legacy SQLite read permissions are accepted only inside an
+owner-private state directory, without changing existing permissions.
+
+Follow [Magnus's context-only adoption protocol](https://github.com/ChefTaco/magnus/blob/v1.1.12/docs/ARDENT_CONTEXT_ADOPTION.md).
+Staging uses an isolated synthetic database with the profile's configured model
+provider, tools disabled, and exact release, base-runtime, policy, and config pins.
+Adoption preserves originals and unknown effects, restarts the real gateway,
+physically switches to the retained previous runtime for rollback verification,
+then restores the adopted runtime. Require signed completion evidence for each
+stage; a diagnostic journal phase alone is not completion authority. Neither a
+manager upgrade nor one profile's acceptance proves fleet-wide adoption.
 
 Retain the isolated pilot and per-profile source, journal, restart, continuation,
 recovery, and rollback acceptance requirements. Keep operational state and receipts
