@@ -33,4 +33,37 @@ not an independently generated old-Ardent summary. It does not establish broad
 paired-task superiority. Separately, the isolated Ardent pilot produces
 byte-identical prepared context through the current and actual previous reader
 against the same checkpoint database. Original messages and recovered sources
-remain unchanged. Production rollout acceptance is still outstanding.
+remain unchanged. The reviewed managed Ardent rollout subsequently completed
+individual acceptance on 2026-11-03; this is a recorded milestone, not continuous
+fleet-health verification. Operational identities and receipts remain private.
+
+## Hermes acceptance
+
+Hermes plugin `0.1.1` release verification includes 32 plugin regression tests and
+37 existing tests. Plugin tests cover host-committed candidates, five
+successive compactions, source recovery, UTF-16 protection, complete parallel
+tools, opaque-message retention, missing identities, cancellation, policy and
+source changes, index recovery, complete request counting, onboarding, and scoped
+rollback. Fixed summarizers in these tests prove mechanical behavior only.
+
+The model-backed synthetic comparison has four variants: full history, Hermes's
+built-in compressor, Emberfold, and a recent-only window. In the recorded case,
+Emberfold, the built-in compressor, and full history retain the changed
+requirement, exact Unicode identifier, and unknown external outcome. The recent
+window loses the requirement and identifier. This is one defined scenario, not a
+general ranking or a claim of universal token or latency savings. Compression
+overhead and continuation usage must be reported with their measurement scope.
+
+Native Hermes acceptance separately verifies automatic dispatch in an isolated
+home and manual compression through the real gateway. Recall, head-bound rebuild,
+continuation after process restart, and the previous engine reading a retained
+handoff pass. The isolated automatic test lowers only its own trigger to exercise
+dispatch; production keeps its prior trigger and stronger protection window.
+Malformed model summaries and earlier adapter incompatibilities were rejected
+before publication, investigated, and followed by successful acceptance checks.
+
+Native gateway token lines labeled approximate remain estimates. Compatible
+llama.cpp template/tokenizer counts and provider usage are recorded separately;
+unavailable measurements stay explicitly labeled. Preserve original-row content
+and identity independently of archive flags or whitespace-trimmed display copies.
+Keep target-specific measurements, transcripts, and receipts private.

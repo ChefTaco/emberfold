@@ -12,13 +12,15 @@ interfaces. The first verified runtime is Hermes `cabaf053b5b42885a9b11827925473
 Install Node `^24.22.1` or `^26.13.0`. No root privileges or Docker are required.
 
 ```bash
-hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref FULL_RELEASE_COMMIT --enable
+hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref 416b6fb66149ac17fbca54cb46ec79f39214d647 --enable
 hermes emberfold setup
 hermes emberfold status --json
 ```
 
-Replace `FULL_RELEASE_COMMIT` with a reviewed **40-character commit**, not a tag
-or branch. See the repository's `hermes-v*` releases. Accept Hermes's separate
+This pins [plugin 0.1.1](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1),
+which uses `@hivemagnus/emberfold@0.1.0`. Plugin and core versions are independent;
+use 0.1.1 rather than the superseded Hermes plugin 0.1.0. Future pins must be
+reviewed **40-character commits**, not tags or branches. Accept Hermes's separate
 Node dependency question during installation. If dependencies were skipped, run
 `hermes emberfold setup --install-deps` to explicitly install the pinned lockfile.
 This executes `npm ci --ignore-scripts` inside this plugin only.
@@ -36,6 +38,28 @@ For unattended onboarding, inspect `setup --check --json` first, then use
 `--check` makes no model calls and does not write plugin state or configuration.
 Use the intended `HERMES_HOME` for every command. Named profiles are separate;
 the default home is not necessarily `profiles/default`.
+
+For a named Hermes profile, use `hermes -p example-agent emberfold setup` and the
+same prefix for subsequent commands. The plugin's `setup --profile general`,
+`creative`, or `reflective` selects a continuity policy, not a Hermes home.
+
+### Readiness and troubleshooting
+
+`status --json` separates installed code, the configured engine, a recently
+observed real session in a still-running Hermes process (`active`), and readiness
+without reported errors (`healthy`). It is not continuous monitoring or proof of
+successful compaction by itself. A synthetic setup check never establishes
+runtime activation. Use `doctor --json` and native compaction/recovery checks
+before promotion.
+
+If Node dependencies were skipped or removed by a forced reinstall, review
+`setup --check --json`, then explicitly repair with `setup --install-deps`.
+Repair reruns guided setup and its synthetic model check. Keep the existing
+continuity policy by passing `--profile creative` or `--profile reflective` when
+applicable; setup defaults to `general`. No dependencies download during a turn.
+An existing context engine or administrator-managed key requires review, not a
+silent replacement. External app-server context cannot be activated through this
+plugin.
 
 ## Operation
 
@@ -117,8 +141,12 @@ transcripts, or operational inventories belong in the public repository.
 
 Review the new release, back up private settings, then reinstall the same source
 with `--force --ref NEW_FULL_COMMIT`. Pinned installs do not track branch tips.
-Restart the same gateway and verify a real session, recall, and `status` again.
-Do not overwrite existing release tags or package versions.
+Review the separate Node dependency consent again: a forced reinstall can remove
+the previous `node_modules`, even for the same pin. Run `setup --check --json` and
+explicitly repair dependencies before any model turn, retaining the existing
+continuity policy as described above. Restart the same gateway and verify a real
+session, compaction, recall, and `status` again. Keep the previous exact plugin
+commit for version rollback. Do not overwrite release tags or package versions.
 
 ```bash
 hermes emberfold rollback --yes
@@ -130,6 +158,10 @@ historical handoffs remain ordinary readable messages for the built-in compresso
 Restart the existing gateway, verify the previous engine, then optionally run
 `hermes plugins disable emberfold-hermes` and `hermes plugins remove emberfold-hermes`.
 Removing an active plugin without switching engines first is not a safe rollback.
+If restoring an older plugin version, reinstall its reviewed full commit and
+dependencies, then restart and verify the previous engine. Preserve transcript
+and `plugin-data` changes made after the original backup. Rollback is not database
+restoration, and a newer operator configuration must be reconciled explicitly.
 
 ## Development
 

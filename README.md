@@ -10,6 +10,7 @@ and references back to original sources.
 - `@hivemagnus/emberfold`: storage-independent TypeScript library.
 - `@hivemagnus/emberfold-cli`: `emberfold prepare`, `inspect`, `rebuild`, `recall`, and `serve`.
 - `@hivemagnus/emberfold-server`: optional authenticated stateless HTTP wrapper.
+- `emberfold-hermes`: standard Hermes context-engine plugin with a local Node worker.
 
 Ardent imports the library directly. The service is optional and holds no
 authoritative transcript or checkpoint head. Hosts publish candidates with
@@ -36,9 +37,24 @@ Optional adapters are exported from `@hivemagnus/emberfold/adapters`.
 
 The [standard Hermes plugin](integrations/emberfold-hermes/README.md) runs
 Emberfold locally and reuses Hermes's compression model and credentials. Install
-the plugin from a reviewed `hermes-v*` release commit, then run
-`hermes emberfold setup`. No Emberfold account, remote service, or Hermes fork is
-required. Existing memory providers remain independent.
+the verified [Hermes Plugin 0.1.1](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1):
+
+```bash
+hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref 416b6fb66149ac17fbca54cb46ec79f39214d647 --enable
+hermes emberfold setup
+hermes emberfold status --json
+```
+
+Accept Hermes's separate Node dependency prompt. If skipped, use
+`hermes emberfold setup --install-deps`. Setup requires consent for a synthetic
+model check and configuration changes; restart the existing gateway before
+verifying a real session. Installation alone is not activation.
+
+No Emberfold account, remote service, or Hermes fork is required. Existing memory
+providers remain independent. The plugin is versioned separately from the core:
+plugin `0.1.1` pins `@hivemagnus/emberfold@0.1.0`. Follow the plugin's
+[onboarding and rollback guide](integrations/emberfold-hermes/README.md) and
+[scoped adoption checklist](integrations/emberfold-hermes/DEPLOYMENT.md).
 
 ## Preservation
 
@@ -74,8 +90,15 @@ See [contracts](contracts/openapi.json), [operations](docs/OPERATIONS.md), and
 
 ## Development
 
-Use Node matching `package.json`. Run `npm ci`, `npm run build`, and
-`npm run verify`. Contract generation is `npm run contracts:write`.
+Use Node matching `package.json`, plus Python 3 for the Hermes plugin tests:
+
+```bash
+npm ci --ignore-scripts
+npm ci --ignore-scripts --prefix integrations/emberfold-hermes
+npm run verify
+```
+
+Contract generation is `npm run contracts:write`.
 All checked-in examples and test data are synthetic.
 
 To verify a trusted Magnus revision against the candidate Emberfold package, run

@@ -1,5 +1,7 @@
 # Operations
 
+## Optional HTTP service
+
 The service is stateless. Keep authoritative history and checkpoint publication
 inside the caller. Pass credentials through environment variable names in provider
 configuration; do not put secret values in JSON or request bodies.
@@ -58,3 +60,40 @@ still pending, inspect registry availability before running publication again.
 The optional Codex adapter uses the local tools-disabled stdio app-server and
 existing owner authentication. The protocol is pinned by tests and verified
 against the installed binary. Reference: [official Codex app-server documentation](https://learn.chatgpt.com/docs/app-server).
+
+## Hermes plugin
+
+Hermes uses the local `emberfold-hermes` plugin, not the optional service or its
+deployment credentials. Start with [guided onboarding](../integrations/emberfold-hermes/README.md)
+and the [profile-scoped adoption checklist](../integrations/emberfold-hermes/DEPLOYMENT.md).
+Hermes owns model authentication, transcripts, compression commits, and session
+lifecycle. The plugin's private indexes are recoverable derived state, not an
+alternative conversation database. Do not restore an old database for rollback.
+
+Record installed, configured, active, and healthy states separately. Keep native
+session evidence and installed digests distinct from cached management inventory.
+Run the isolated pilot before selecting a production home; preserve stronger
+existing protection settings and leave unrelated profiles and memory providers
+unchanged. Configuration and plugin-version rollback never discard newer messages.
+
+## Independent release streams
+
+The library, JSON CLI, and service remain at `0.1.0`. Hermes plugin `0.1.1` is
+published independently as
+[`hermes-v0.1.1`](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1)
+at `416b6fb66149ac17fbca54cb46ec79f39214d647`, with an exact core `0.1.0`
+dependency. Use that release's copy-ready full-commit installation instructions,
+metadata, archive, and SHA-256 checksums. Hermes plugin `0.1.0` is superseded for
+gateway adoption; its immutable tag and artifacts remain available.
+
+For another plugin release, verify both supported Node lines, Plugin Doctor,
+Hermes validation, packaged installation, and model-backed native acceptance.
+Tag the verified source with a new `hermes-v*` version and publish sanitized
+metadata containing the full source commit, exact dependency identities, tested
+Hermes revisions, and artifact checksums. Download and verify the published
+artifacts before adoption. Retain private acceptance and rollback receipts.
+
+The core `Publish` workflow handles `v*` tags, not `hermes-v*` component tags.
+A plugin-only release must not republish the unchanged npm packages or service
+image. Never overwrite any published version, release tag, or artifact to amend
+a failed acceptance; ship a new version and clearly supersede the old one.

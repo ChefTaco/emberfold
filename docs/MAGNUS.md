@@ -73,3 +73,18 @@ manager upgrade nor one profile's acceptance proves fleet-wide adoption.
 Retain the isolated pilot and per-profile source, journal, restart, continuation,
 recovery, and rollback acceptance requirements. Keep operational state and receipts
 private, and leave unfinished production acceptance unchecked.
+
+## Recorded adoption outcome
+
+The reviewed managed context-only rollout completed individual production-profile
+acceptance on 2026-11-03 with core `0.1.0`. Compaction, continuation, exact source
+recovery, rebuild, original-message preservation, and physical previous-reader
+rollback passed through the managed path. Historical uncertain effects were not
+replayed or reclassified as successful. Identities, inventories, signed receipts,
+and deployment-specific package digests remain private.
+
+This dated outcome supersedes the initial blocked-rollout status; it does not
+relax admission controls or establish current fleet health. Revalidate every
+target before future changes. Hermes plugin adoption is a separate integration,
+with its own version, profile scope, and native gateway acceptance; see the
+[Hermes deployment guide](../integrations/emberfold-hermes/DEPLOYMENT.md).
