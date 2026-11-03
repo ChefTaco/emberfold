@@ -331,6 +331,12 @@ class EngineTests(unittest.TestCase):
 
 
 class OnboardingTests(unittest.TestCase):
+    def test_onboarding_never_prints_credentials_from_provider_urls(self):
+        route = onboarding.display_route({"base_url": "https://alice:synthetic-password@model.example.com/v1?token=synthetic-token", "model": "synthetic"})
+        self.assertEqual(route["base_url"], "https://model.example.com")
+        self.assertNotIn("synthetic-password", json.dumps(route))
+        self.assertNotIn("synthetic-token", json.dumps(route))
+
     def fixture(self, directory):
         stack = ExitStack()
         self.addCleanup(stack.close)

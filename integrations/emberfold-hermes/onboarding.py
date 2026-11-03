@@ -72,9 +72,22 @@ def preflight(ctx):
         errors.append("RUNTIME_UNSUPPORTED: external app-server owns its backing context")
     settings = settings_from(config)
     return {"version": 1, "installed": True, "configured": config.get("context", {}).get("engine") == "emberfold",
-            "home": str(home_path()), "node": binary, "route": route, "settings": settings,
+            "home": str(home_path()), "node": binary, "route": display_route(route), "settings": settings,
             "previous_engine": config.get("context", {}).get("engine", "compressor"), "errors": errors,
             "memory_provider_unchanged": config.get("memory", {}).get("provider", "builtin")}
+
+
+def display_route(route):
+    result = dict(route)
+    try:
+        parsed = urllib.parse.urlsplit(route["base_url"])
+        hostname = parsed.hostname or ""
+        if ":" in hostname:
+            hostname = "[" + hostname + "]"
+        result["base_url"] = urllib.parse.urlunsplit((parsed.scheme, hostname + (":" + str(parsed.port) if parsed.port else ""), "", "", ""))
+    except ValueError:
+        result["base_url"] = "invalid URL (redacted)"
+    return result
 
 
 def status(ctx):

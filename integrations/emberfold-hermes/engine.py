@@ -86,6 +86,10 @@ def settings_from(config):
             raise EmberfoldError("SETTINGS_INVALID: invalid numeric setting")
     if not 1 <= result["timeout_seconds"] <= 600 or not 1 <= result["max_passes"] <= 256:
         raise EmberfoldError("SETTINGS_INVALID: invalid work limit")
+    if result.get("tokenizer_url"):
+        parsed = urllib.parse.urlsplit(result["tokenizer_url"])
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+            raise EmberfoldError("TOKENIZER_URL_INVALID: use an administrator-selected HTTP origin without embedded credentials")
     return result
 
 
