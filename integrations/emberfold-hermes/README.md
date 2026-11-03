@@ -91,8 +91,10 @@ Media requests are not reported as provider-measured unless
 the tokenizer actually handles their modality.
 
 Opaque/multimodal messages and legacy summaries remain protected, not flattened
-or represented as recoverable originals. Sources require Hermes's durable
-`message_uid`. Compression is bounded to 10,000 source rows, 16 MiB protocol
+or represented as recoverable originals. Historical sources require Hermes's
+durable `message_uid`. During automatic preflight, an unpersisted current exchange
+remains exact and outside checkpoint sources; temporary protocol identities never
+enter the transcript. Compression is bounded to 10,000 source rows, 16 MiB protocol
 messages, 600 seconds maximum, and the configured summarization work limit.
 Externally owned `codex_app_server` context is not supported. Run a normal turn
 before manual compression so the engine can observe tool schemas and reserves.

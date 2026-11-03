@@ -7,6 +7,7 @@ import time
 import urllib.parse
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 from agent.context_engine import ContextEngine
@@ -434,6 +435,15 @@ class EmberfoldEngine(ContextEngine):
                 not (message.get("_compressed_summary") and str(message.get("content", "")).startswith(WARNING + MARKER))]
         if not live:
             raise EmberfoldError("CURRENT_REQUEST_MISSING")
+        current_start = max((index for index, message in enumerate(live) if message["role"] == "user"), default=0)
+        pending = {}
+        for index, message in enumerate(live):
+            if message.get("message_uid") is None:
+                if index < current_start:
+                    raise EmberfoldError("SOURCE_ID_UNAVAILABLE: persist original history before compression")
+                identity = "emberfold-pending-" + uuid.uuid4().hex
+                pending[identity] = copy.deepcopy(message)
+                message["message_uid"] = identity
         originals = {}
         for message in self._originals():
             if message.get("message_uid") and not message.get("_compressed_summary"):
@@ -469,7 +479,7 @@ class EmberfoldEngine(ContextEngine):
                    "checkpoint": checkpoint, "protected": protections, "policy": policy,
                    "budget": {"context_tokens": self.context_length, "output_reserve_tokens": output_reserve,
                               "safety_tokens": self.settings["safety_tokens"]}, "force": force}
-        return request, live, tools
+        return request, live, tools, pending
 
     def compress(self, messages, current_tokens=None, focus_topic=None, force=False, memory_context="", **kwargs):
         with self._lock:
@@ -479,7 +489,7 @@ class EmberfoldEngine(ContextEngine):
                 started = time.monotonic()
                 intent_path = data_path(self.home) / (digest(self.namespace) + ".rebuild.json") if self.namespace else None
                 intent = json.loads(intent_path.read_text()) if intent_path and intent_path.exists() else None
-                request, live, tools = self._prepare(messages, True, rebuild=bool(intent))
+                request, live, tools, pending = self._prepare(messages, True, rebuild=bool(intent))
                 before_head = request["checkpoint"] and request["checkpoint"]["id"]
                 if intent and (intent.get("expected_head") != before_head or intent.get("settings_sha256") != digest(self.settings)):
                     raise EmberfoldError("REBUILD_STALE: inspect the current head and queue a new rebuild")
@@ -488,6 +498,8 @@ class EmberfoldEngine(ContextEngine):
                 candidate = result["candidate_checkpoint"]
                 if not candidate:
                     return messages
+                if set(candidate["source_message_ids"]) & set(pending):
+                    raise EmberfoldError("CURRENT_REQUEST_SUMMARIZED: pending messages cannot become historical sources")
                 retained = set(message["id"] for message in [*request["history"], *request["current"]]) - set(candidate["source_message_ids"])
                 handoff = {"role": "assistant", "content": WARNING + MARKER + canonical({"version": 1, "checkpoint": candidate,
                            "adapter_policy_sha256": digest(self.settings), "rebuild_from": before_head if intent else None}),
@@ -496,7 +508,7 @@ class EmberfoldEngine(ContextEngine):
                 if candidate["protected"]:
                     output.append({"role": "assistant", "content": WARNING + "Protected exact passages:\n" +
                                    "\n".join(span["text"] for span in candidate["protected"])})
-                output.extend(copy.deepcopy(message) for message in live if message_id(message) in retained)
+                output.extend(copy.deepcopy(pending.get(message_id(message), message)) for message in live if message_id(message) in retained)
                 rendered = [standard(message) for message in output]
                 if not any(message["role"] == "system" for message in rendered) and request["instructions"]:
                     rendered.insert(0, {"role": "system", "content": request["instructions"]})

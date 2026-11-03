@@ -276,6 +276,29 @@ class EngineTests(unittest.TestCase):
         with self.assertRaisesRegex(protocol.EmberfoldError, "SOURCE_ID_UNAVAILABLE"):
             self.engine.compress(messages)
 
+    def test_automatic_preflight_preserves_unpersisted_current_request(self):
+        messages = self.initial()
+        current = {"role": "user", "content": "Current exact request 😀", "api_content": "provider metadata"}
+        messages.append(current)
+        before = copy.deepcopy(messages)
+        output = self.engine.compress(messages)
+        checkpoint = engine_module.checkpoint_in(output)
+        self.assertEqual(output[-1], current)
+        self.assertEqual(messages, before)
+        self.assertFalse(any(identity.startswith("emberfold-pending-") for identity in checkpoint["source_message_ids"]))
+        self.database.commit(output)
+        self.engine.on_session_start("session-1", boundary_reason="compression")
+        self.assertFalse(any(message.get("message_uid", "").startswith("emberfold-pending-") for message in self.database.originals))
+
+    def test_unpersisted_current_tool_transaction_retains_host_metadata(self):
+        messages = self.initial()
+        current = [{"role": "user", "content": "Current request"},
+                   {"role": "assistant", "content": None, "reasoning_content": "retained",
+                    "tool_calls": [{"id": identity, "type": "function", "function": {"name": "read", "arguments": "{}"}} for identity in ("pending-a", "pending-b")]},
+                   *[{"role": "tool", "tool_call_id": identity, "content": "observed"} for identity in ("pending-a", "pending-b")]]
+        output = self.engine.compress([*messages, *current])
+        self.assertEqual(output[-4:], current)
+
     def test_worker_rejects_unknown_operations_and_never_calls_host(self):
         calls = []
         with self.assertRaises(protocol.EmberfoldError):

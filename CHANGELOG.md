@@ -12,6 +12,7 @@
 - Capture complete provider tool schemas through read-only request middleware instead of budget-counting sanitized observer projections.
 - Label tokenizer-unavailable estimates explicitly; keep measured-only policies fail-closed.
 - Recover stripped native-gateway checkpoint markers from matching committed message identities, preserving checkpoint ancestry on manual compression and rebuild.
+- Preserve unpersisted current exchanges during automatic preflight without publishing temporary identities as historical sources.
 
 ## Hermes Plugin 0.1.0 - 2026-11-03
 
