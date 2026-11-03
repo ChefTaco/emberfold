@@ -13,6 +13,7 @@
 - Label tokenizer-unavailable estimates explicitly; keep measured-only policies fail-closed.
 - Recover stripped native-gateway checkpoint markers from matching committed message identities, preserving checkpoint ancestry on manual compression and rebuild.
 - Preserve unpersisted current exchanges during automatic preflight without publishing temporary identities as historical sources.
+- Include the complete summary schema in counted summarizer input, including bounded citations per item.
 
 ## Hermes Plugin 0.1.0 - 2026-11-03
 

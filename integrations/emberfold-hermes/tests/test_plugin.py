@@ -155,6 +155,20 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(messages, before)
         self.assertEqual(self.database.active, before)
 
+    def test_summarizer_sees_full_contract_including_per_item_citation_limits(self):
+        captured = []
+        original = self.engine._callback
+
+        def capture(method, params):
+            if method == "summarize":
+                captured.append(params["messages"][0]["content"])
+            return original(method, params)
+
+        self.engine._callback = capture
+        self.engine.compress(self.initial())
+        schema = json.loads(captured[0].split("Output JSON Schema: ", 1)[1])
+        self.assertEqual(schema["properties"]["items"]["items"]["properties"]["source_message_ids"]["maxItems"], 32)
+
     def test_complete_parallel_tools_and_metadata_retained(self):
         messages = self.initial()
         current = [{"message_uid": "parallel-user", "role": "user", "content": "Current request"},
