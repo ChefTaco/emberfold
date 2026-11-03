@@ -1,5 +1,7 @@
 # Emberfold
 
+[Project site: UI previews and installation walkthroughs](https://hivemagnus.com/).
+
 Portable, inspectable context continuity for local and hosted agents.
 Emberfold prepares what an agent carries into its next model request: recent
 conversation, decisions, corrections, unresolved work, exact protected passages,
