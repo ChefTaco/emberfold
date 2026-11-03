@@ -13,3 +13,5 @@ artifacts/
 .private-terms
 .npmrc
 .ssh/
+__pycache__/
+*.pyc

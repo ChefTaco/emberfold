@@ -32,6 +32,14 @@ Provide a summarizer adapter when older exchanges need compression. Configure
 providers explicitly; no network call or cloud fallback happens implicitly.
 Optional adapters are exported from `@hivemagnus/emberfold/adapters`.
 
+## Hermes Agent
+
+The [standard Hermes plugin](integrations/emberfold-hermes/README.md) runs
+Emberfold locally and reuses Hermes's compression model and credentials. Install
+the plugin from a reviewed `hermes-v*` release commit, then run
+`hermes emberfold setup`. No Emberfold account, remote service, or Hermes fork is
+required. Existing memory providers remain independent.
+
 ## Preservation
 
 General, creative, and reflective policies preserve different historical

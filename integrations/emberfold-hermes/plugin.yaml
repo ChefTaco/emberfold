@@ -1,0 +1,9 @@
+name: emberfold-hermes
+version: "0.1.0"
+description: Local, source-addressable context continuity with protected passages and recoverable checkpoints
+author: ChefTaco
+license: Apache-2.0
+provides_tools: []
+provides_hooks:
+  - pre_api_request
+python_dependencies: []
