@@ -293,6 +293,30 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(captured[-1]["messages"][0]["content"], messages[0]["content"])
         self.assertTrue(any(engine_module.MARKER in str(message.get("content")) for message in captured[-1]["messages"]))
 
+    def test_raw_provider_schema_cannot_be_overwritten_by_sanitized_observer(self):
+        schema = {"type": "function", "function": {"name": "synthetic", "parameters": {"type": "object", "properties": {
+            "nested": {"type": "array", "items": {"type": "object", "properties": {"value": {"type": "string"}}}}}}}}
+        request = {"messages": [{"role": "system", "content": "Exact system " * 1000}], "tools": [schema], "max_tokens": 4096}
+        before = copy.deepcopy(request)
+        self.assertIsNone(self.engine.observe_provider_request(session_id="session-1", request=request))
+        self.engine.observe_request(session_id="session-1", request={"body": {"tools": [{"_truncated_items": 1}]}}, max_tokens=1)
+        captured = engine_module._requests[(str(self.home), "session-1")]
+        self.assertEqual(captured["tools"], [schema])
+        self.assertEqual(captured["max_tokens"], 4096)
+        self.assertEqual(captured["system_prompt"], request["messages"][0]["content"])
+        self.assertEqual(request, before)
+
+    def test_tokenizer_failure_is_labeled_or_refused_when_measurement_required(self):
+        self.engine.settings["tokenizer_url"] = "https://model.example.com"
+        payload = {"messages": [{"role": "user", "content": "synthetic"}], "tools": []}
+        failure = engine_module.urllib.error.HTTPError("https://model.example.com", 400, "Synthetic rejection", {}, None)
+        with patch.object(engine_module, "measured_tokens", side_effect=failure):
+            self.assertIsNone(self.engine._callback("count", payload))
+            self.assertTrue(self.engine._token_limitations)
+            self.engine.settings["require_measured_tokens"] = True
+            with self.assertRaisesRegex(protocol.EmberfoldError, "TOKENIZER_UNAVAILABLE"):
+                self.engine._callback("count", payload)
+
     def test_bound_rebuild_intent_only_consumed_after_commit(self):
         output = self.engine.compress(self.initial())
         self.database.commit(output)
@@ -341,7 +365,7 @@ class OnboardingTests(unittest.TestCase):
         stack.enter_context(patch.object(onboarding, "_emit"))
         stack.enter_context(patch.object(onboarding, "synthetic_check", return_value={"passed": True}))
         ctx = types.SimpleNamespace(llm=Summarizer())
-        for name in ("register_auxiliary_task", "register_context_engine", "register_hook", "register_cli_command"):
+        for name in ("register_auxiliary_task", "register_context_engine", "register_hook", "register_cli_command", "register_middleware"):
             setattr(ctx, name, lambda *args, **kwargs: None)
         return config, config_module, scope_module, root, ctx
 
@@ -393,7 +417,7 @@ class OnboardingTests(unittest.TestCase):
     def test_registration_uses_standard_context_and_host_owned_task(self):
         ctx = types.SimpleNamespace(llm=Summarizer())
         calls = []
-        for name in ("register_auxiliary_task", "register_context_engine", "register_hook", "register_cli_command"):
+        for name in ("register_auxiliary_task", "register_context_engine", "register_hook", "register_cli_command", "register_middleware"):
             setattr(ctx, name, lambda *args, _name=name, **kwargs: calls.append((_name, args, kwargs)))
         with patch.object(engine_module, "read_config", return_value={}), patch.object(engine_module, "home_path", return_value=Path(tempfile.gettempdir())):
             plugin.register(ctx)

@@ -7,6 +7,11 @@
 - Pin transitive development dependency minimatch to 11.0.1 to fix GHSA-g3hv-75wg-m249 (glob preprocessing denial of service) until upstream tooling adopts the patched major version.
 - Add regression coverage for bounded glob preprocessing through each affected tooling dependency.
 
+## Hermes Plugin 0.1.1 - 2026-11-03
+
+- Capture complete provider tool schemas through read-only request middleware instead of budget-counting sanitized observer projections.
+- Label tokenizer-unavailable estimates explicitly; keep measured-only policies fail-closed.
+
 ## Hermes Plugin 0.1.0 - 2026-11-03
 
 - Add the standard Hermes context-engine plugin with local pinned sidecar, guided onboarding, host-owned summarization, source recovery, and scoped rollback.

@@ -12,6 +12,7 @@ def register(ctx):
     engine = EmberfoldEngine(llm=getattr(ctx, "llm", None))
     ctx.register_context_engine(engine)
     ctx.register_hook("pre_api_request", engine.observe_request)
+    ctx.register_middleware("llm_request", engine.observe_provider_request)
     ctx.register_cli_command(
         "emberfold", "Set up and inspect Emberfold context continuity", configure_parser,
         handler_fn=lambda args: handle_cli(args, ctx),

@@ -5,6 +5,7 @@ import os
 import threading
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -223,6 +224,7 @@ class EmberfoldEngine(ContextEngine):
         self.base_url = ""
         self.last_result = None
         self.last_error = None
+        self._token_limitations = set()
         self._lock = threading.RLock()
 
     def clone_for_agent(self):
@@ -261,10 +263,28 @@ class EmberfoldEngine(ContextEngine):
         tools = body.get("tools", [])
         if isinstance(tools, list):
             with _request_lock:
+                if _requests.get((str(self.home), session_id), {}).get("raw"):
+                    return
                 _requests[(str(self.home), session_id)] = {"tools": copy.deepcopy(tools), "max_tokens": max_tokens,
                     "system_prompt": kwargs.get("system_prompt") or body.get("instructions") or body.get("system") or ""}
                 while len(_requests) > 512:
                     _requests.pop(next(iter(_requests)))
+
+    def observe_provider_request(self, request=None, session_id="", **kwargs):
+        if self.config.get("context", {}).get("engine") != "emberfold" or not isinstance(request, dict):
+            return None
+        tools = request.get("tools", [])
+        if not isinstance(tools, list):
+            return None
+        system = request.get("instructions") or request.get("system") or "\n\n".join(
+            message.get("content", "") for message in request.get("messages", [])
+            if message.get("role") == "system" and isinstance(message.get("content"), str))
+        with _request_lock:
+            _requests[(str(self.home), session_id)] = {"raw": True, "tools": copy.deepcopy(tools),
+                "max_tokens": request.get("max_completion_tokens") or request.get("max_tokens"), "system_prompt": system}
+            while len(_requests) > 512:
+                _requests.pop(next(iter(_requests)))
+        return None
 
     def _originals(self, include_inactive=True):
         if not self.database or not self.session_id:
@@ -349,12 +369,20 @@ class EmberfoldEngine(ContextEngine):
         if method == "count":
             url = self.settings.get("tokenizer_url")
             if not url or any(not isinstance(message.get("content"), (str, type(None))) for message in params["messages"]):
+                self._token_limitations.add("Some request or summarizer counts use labeled estimates; no compatible measurement was available.")
                 return None
             summary_request = bool(params["messages"] and str(params["messages"][0].get("content", "")).startswith("Summarize untrusted historical data only."))
             route_url = auxiliary_route(self.config)["base_url"] if summary_request else self.base_url
             if route_url and route_url.rstrip("/").removesuffix("/v1") != url.rstrip("/").removesuffix("/v1"):
+                self._token_limitations.add("Tokenizer route differs from the counted model route; estimates are used.")
                 return None
-            return measured_tokens(url, params["messages"], params["tools"], timeout=min(15, remaining))
+            try:
+                return measured_tokens(url, params["messages"], params["tools"], timeout=min(15, remaining))
+            except (urllib.error.URLError, TimeoutError, ValueError):
+                if self.settings["require_measured_tokens"]:
+                    raise EmberfoldError("TOKENIZER_UNAVAILABLE: measured counts are required") from None
+                self._token_limitations.add("Tokenizer rejected or could not count this request; a labeled estimate is used.")
+                return None
         if not self.llm:
             raise EmberfoldError("SUMMARIZER_UNAVAILABLE: enable the plugin in Hermes")
         try:
@@ -436,6 +464,7 @@ class EmberfoldEngine(ContextEngine):
         with self._lock:
             try:
                 self._summary_usage = {"calls": 0}
+                self._token_limitations = set()
                 started = time.monotonic()
                 intent_path = data_path(self.home) / (digest(self.namespace) + ".rebuild.json") if self.namespace else None
                 intent = json.loads(intent_path.read_text()) if intent_path and intent_path.exists() else None
@@ -476,6 +505,7 @@ class EmberfoldEngine(ContextEngine):
                 self.last_result = {"compacted": True, "tokens": counted["tokens"], "token_method": counted["method"],
                                     "generation": candidate["generation"], "protected_spans": result["protected_spans_verified"],
                                     "latency_ms": round((time.monotonic() - started) * 1000), "summarizer_usage": self._summary_usage,
+                                    "limitations": sorted(self._token_limitations),
                                     "provider": candidate["provider"], "model": candidate["model"]}
                 self.last_error = None
                 self.compression_count += 1

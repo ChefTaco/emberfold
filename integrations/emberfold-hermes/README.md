@@ -82,8 +82,12 @@ change an existing Emberfold policy. Available settings include `profile`
 Redirects and embedded URL credentials are refused. Setup probes a configured
 compatible endpoint with synthetic text. Complete rendered prompts include tool
 schemas, checkpoint envelopes, retained content, and output/safety reserves.
+The plugin observes complete provider kwargs through read-only middleware; it
+does not count redacted/truncated observer-hook projections or modify requests.
 Other routes use explicitly labeled estimates; `require_measured_tokens: true`
-refuses estimates. Media requests are not reported as provider-measured unless
+refuses estimates, including tokenizer errors. An unavailable or rejecting
+tokenizer is reported as a limitation rather than silently called a measurement.
+Media requests are not reported as provider-measured unless
 the tokenizer actually handles their modality.
 
 Opaque/multimodal messages and legacy summaries remain protected, not flattened

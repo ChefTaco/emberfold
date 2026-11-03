@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "plugin": "emberfold-hermes",
+  "version": "0.1.1",
+  "tag": "hermes-v0.1.1",
+  "path": "integrations/emberfold-hermes",
+  "engine": "@hivemagnus/emberfold@0.1.0",
+  "protocol_version": 1,
+  "node": ["^24.22.1", "^26.13.0"],
+  "tested_hermes_revisions": ["cabaf053b5b42885a9b11827925473748e54b090"],
+  "upstream": "https://github.com/NousResearch/hermes-agent",
+  "activation": "context.engine=emberfold",
+  "state_owner": "hermes",
+  "installation": "hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref FULL_RELEASE_COMMIT --enable"
+}

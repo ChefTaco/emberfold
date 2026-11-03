@@ -56,7 +56,7 @@ def _confirm(prompt, approved=False):
 def preflight(ctx):
     from agent.context_engine import ContextEngine
     config = read_config()
-    required = ("register_context_engine", "register_auxiliary_task", "register_cli_command", "register_hook")
+    required = ("register_context_engine", "register_auxiliary_task", "register_cli_command", "register_hook", "register_middleware")
     errors = []
     if any(not callable(getattr(ctx, name, None)) for name in required) or not hasattr(ctx, "llm"):
         errors.append("HERMES_UNSUPPORTED: upgrade Hermes to support context engines and host-owned plugin LLMs")
