@@ -420,6 +420,13 @@ class EmberfoldEngine(ContextEngine):
     def _prepare(self, messages, force, rebuild=False):
         if not self.namespace:
             raise EmberfoldError("SESSION_UNBOUND")
+        committed = {message.get("message_uid"): message for message in self._originals(False)
+                     if message.get("message_uid") and message.get("_compressed_summary")}
+        messages = copy.deepcopy(messages)
+        for message in messages:
+            source = committed.get(message.get("message_uid"))
+            if source and source.get("content") == message.get("content"):
+                message["_compressed_summary"] = True
         checkpoint = checkpoint_in(messages)
         if checkpoint and checkpoint["namespace"] != self.namespace:
             raise EmberfoldError("CHECKPOINT_INVALID: conversation mismatch")

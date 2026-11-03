@@ -254,6 +254,22 @@ class EngineTests(unittest.TestCase):
         recalled = json.loads(self.engine.handle_tool_call("emberfold_recall", {"message_ids": ["user-0"]}))
         self.assertTrue(recalled["messages"][0]["content"].endswith(" "))
 
+    def test_native_gateway_projection_recovers_host_committed_summary_marker(self):
+        output = self.engine.compress(self.initial())
+        self.database.commit(output)
+        self.engine.on_session_start("session-1", boundary_reason="compression")
+        parent = engine_module.checkpoint_in(output)
+        self.database.commit([*self.database.active, *turns(50, 3)])
+        snapshot = copy.deepcopy(self.database.active)
+        for message in snapshot:
+            message.pop("_compressed_summary", None)
+        before = copy.deepcopy(snapshot)
+        next_output = self.engine.compress(snapshot)
+        checkpoint = engine_module.checkpoint_in(next_output)
+        self.assertEqual(checkpoint["parent_id"], parent["id"])
+        self.assertEqual(checkpoint["generation"], 2)
+        self.assertEqual(snapshot, before)
+
     def test_missing_stable_identity_refuses_lossy_conversion(self):
         messages = self.initial()
         messages[1].pop("message_uid")
