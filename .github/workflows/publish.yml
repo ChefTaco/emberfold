@@ -9,6 +9,8 @@ on:
         default: true
 permissions:
   contents: read
+env:
+  IMAGE: ghcr.io/cheftaco/emberfold
 jobs:
   publish:
     runs-on: ubuntu-24.04
@@ -27,20 +29,81 @@ jobs:
       - name: Publish verified packages
         if: github.event_name == 'push' || !inputs.dry_run
         run: node scripts/release.mjs --publish
-  image:
+  image-build:
     needs: publish
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest-amd64: ${{ steps.result.outputs.digest-amd64 }}
+      digest-arm64: ${{ steps.result.outputs.digest-arm64 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: github.event_name == 'push'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=${{ github.event_name == 'push' }}
+          provenance: false
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.licenses=Apache-2.0
+      - id: result
+        run: echo "digest-${{ matrix.arch }}=${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+  image:
+    needs: image-build
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Build service
-        run: docker build -t ghcr.io/cheftaco/emberfold:${GITHUB_REF_NAME#v} .
-      - name: Publish image
-        if: github.event_name == 'push'
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish the multi-architecture image
+        id: manifest
         env:
-          GH_TOKEN: ${{ github.token }}
+          AMD64: ${{ needs.image-build.outputs.digest-amd64 }}
+          ARM64: ${{ needs.image-build.outputs.digest-arm64 }}
         run: |
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker push ghcr.io/cheftaco/emberfold:${GITHUB_REF_NAME#v}
+          version="${GITHUB_REF_NAME#v}"
+          if result=$(docker buildx imagetools inspect "$IMAGE:$version" 2>&1); then
+            echo "Refusing to overwrite $IMAGE:$version" >&2; exit 1
+          elif ! grep -q 'not found' <<<"$result"; then
+            echo "Cannot tell whether $IMAGE:$version exists: $result" >&2; exit 1
+          fi
+          docker buildx imagetools create --tag "$IMAGE:$version" "$IMAGE@$AMD64" "$IMAGE@$ARM64"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$version" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "$IMAGE@$digest" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
