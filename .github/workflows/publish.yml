@@ -25,6 +25,7 @@ jobs:
           node-version: 24.22.1
           registry-url: https://registry.npmjs.org
       - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts --prefix integrations/emberfold-hermes
       - run: npm run verify
       - name: Publish verified packages
         if: github.event_name == 'push' || !inputs.dry_run
