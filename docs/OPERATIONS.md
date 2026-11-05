@@ -78,8 +78,9 @@ unchanged. Configuration and plugin-version rollback never discard newer message
 
 ## Independent release streams
 
-The library, JSON CLI, and service remain at `0.1.0`. Hermes plugin `0.1.1` is
-published independently as
+The library, JSON CLI, and service are at `0.2.0`; the service image is a
+linux/amd64 and linux/arm64 index with a build provenance attestation. Hermes
+plugin `0.1.1` is published independently as
 [`hermes-v0.1.1`](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1)
 at `416b6fb66149ac17fbca54cb46ec79f39214d647`, with an exact core `0.1.0`
 dependency. Use that release's copy-ready full-commit installation instructions,

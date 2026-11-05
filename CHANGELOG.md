@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-11-05
 
+- Publish the service image for linux/amd64 and linux/arm64 as one multi-architecture index with a build provenance attestation, refusing to overwrite an existing version tag.
+- Install Hermes sidecar dependencies in the release workflow so release verification matches CI.
 - Reconcile recorded Ardent and Hermes adoption milestones, pin Hermes onboarding to plugin 0.1.1, and document independent releases, dependency repair, shared-gateway safety, and recovery boundaries.
 - Review Magnus 1.1.8 and add isolated packed-engine compatibility checks against Ardent's context tests and runtime types on both supported Node lines.
 - Refresh rollout guidance to distinguish historical authority failures from current managed-ownership restrictions.

@@ -1,5 +1,5 @@
 {
-  "name": "@hivemagnus/emberfold", "version": "0.1.0", "type": "module",
+  "name": "@hivemagnus/emberfold", "version": "0.2.0", "type": "module",
   "description": "Portable, inspectable context continuity for agents",
   "license": "Apache-2.0", "author": "ChefTaco",
   "repository": { "type": "git", "url": "git+https://github.com/ChefTaco/emberfold.git", "directory": "packages/core" },
