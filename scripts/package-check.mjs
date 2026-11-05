@@ -20,7 +20,7 @@ try {
   await writeFile(join(install, 'package.json'), '{"private":true,"type":"module"}');
   execFileSync('npm', ['install', '--ignore-scripts', '--omit=dev', '--no-audit', ...packs], { cwd: install, stdio: 'pipe' });
   const version = execFileSync(process.execPath, [join(install, 'node_modules/@hivemagnus/emberfold-cli/dist/index.js'), '--version'], { cwd: install, encoding: 'utf8' }).trim();
-  if (version !== '0.2.0') throw new Error('Installed CLI version mismatch');
+  if (version !== '0.2.1') throw new Error('Installed CLI version mismatch');
   execFileSync(process.execPath, ['--input-type=module', '-e', 'import {prepareContext} from "@hivemagnus/emberfold"; import {createEmberfoldServer} from "@hivemagnus/emberfold-server"; if(typeof prepareContext!=="function"||typeof createEmberfoldServer!=="function")process.exit(1)'], { cwd: install, stdio: 'pipe' });
   await mkdir(resolve(root, 'output/packages'), { recursive: true });
   const receipt = [];

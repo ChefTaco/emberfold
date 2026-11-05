@@ -1,5 +1,5 @@
 {
-  "name": "@hivemagnus/emberfold-server", "version": "0.2.0", "type": "module",
+  "name": "@hivemagnus/emberfold-server", "version": "0.2.1", "type": "module",
   "description": "Stateless authenticated HTTP service for Emberfold",
   "license": "Apache-2.0", "author": "ChefTaco",
   "repository": { "type": "git", "url": "git+https://github.com/ChefTaco/emberfold.git", "directory": "packages/server" },
@@ -7,5 +7,5 @@
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
   "files": ["dist", "LICENSE", "NOTICE", "README.md"], "publishConfig": { "access": "public" },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@hivemagnus/emberfold": "0.2.0", "zod": "4.6.7" }
+  "dependencies": { "@hivemagnus/emberfold": "0.2.1", "zod": "4.6.7" }
 }

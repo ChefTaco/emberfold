@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 - 2026-11-05
+
+### Security
+
+- Pin both image stages to `node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c` (same Node, refreshed Debian).
+- Remove npm, npx, Corepack, Yarn, apt, and libapt-pkg6.0 from the runtime image after production dependencies are installed. The service runs only Node. This removes the fixable findings in npm's bundled brace-expansion 5.0.9 and undici 6.28.0 and in apt/libapt-pkg6.0 2.6.1 (CVE-2026-109518). The dpkg database is kept so scanners still inventory OS packages.
+- Trivy 0.70.0 reports no fixable HIGH or CRITICAL findings in the runtime image. Debian publishes no fix yet for: CVE-2023-45853 (zlib1g, CRITICAL, will not fix), CVE-2026-76844 (zlib1g), CVE-2025-69720 (ncurses), CVE-2026-16742 (libsystemd0, libudev1), CVE-2026-41992 (gzip), CVE-2026-53613, CVE-2026-53615, and CVE-2026-78410 (util-linux), CVE-2026-54369 (libacl1), and CVE-2026-9538 (perl-base).
+
 ## 0.2.0 - 2026-11-05
 
 - Publish the service image for linux/amd64 and linux/arm64 as one multi-architecture index with a build provenance attestation, refusing to overwrite an existing version tag.
