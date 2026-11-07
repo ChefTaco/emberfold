@@ -19,7 +19,7 @@
     "contracts:check": "node scripts/contracts.mjs",
     "privacy:check": "node scripts/privacy.mjs",
     "pack:check": "node scripts/package-check.mjs",
-    "compat:magnus": "npm run build -w @hivemagnus/emberfold && node scripts/magnus-compatibility.mjs",
+    "compat:ardent": "npm run build -w @hivemagnus/emberfold && node scripts/ardent-compatibility.mjs",
     "evaluate": "node scripts/evaluate.mjs",
     "verify": "npm run build && npm run typecheck && npm run lint && npm test && npm run hermes:test && npm run hermes:pack && npm run contracts:check && npm run privacy:check && npm run pack:check && npm run evaluate",
     "deploy": "node scripts/deploy.mjs",

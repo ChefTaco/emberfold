@@ -17,7 +17,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm ci --ignore-scripts --prefix integrations/emberfold-hermes
       - run: npm run verify
-  magnus-compatibility:
+  ardent-compatibility:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -28,12 +28,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          repository: ChefTaco/magnus
-          ref: 1f2473112771abdbc1d5288188abfe681c045142
-          path: output/compatibility/magnus
+          repository: ChefTaco/Ardent
+          ref: 90ec90594a15ad412e1385dc6cb9972f15eec66a
+          path: output/compatibility/ardent
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci --ignore-scripts
-      - run: npm run compat:magnus -- --source output/compatibility/magnus
+      - run: npm run compat:ardent -- --source output/compatibility/ardent --revision 90ec90594a15ad412e1385dc6cb9972f15eec66a
