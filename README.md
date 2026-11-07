@@ -103,13 +103,14 @@ npm run verify
 Contract generation is `npm run contracts:write`.
 All checked-in examples and test data are synthetic.
 
-To verify a trusted Magnus revision against the candidate Emberfold package, run
-`npm run compat:magnus -- --source ../Magnus --revision origin/main`. This uses
+To verify a trusted [Ardent](https://github.com/ChefTaco/Ardent) revision against
+the candidate Emberfold package, run
+`npm run compat:ardent -- --source ../Ardent --revision origin/main`. This uses
 tracked source from that exact commit, not working-tree edits. It installs a
 packed Emberfold candidate in a disposable Ardent project, typechecks the runtime,
 and runs Ardent's context and checkpoint tests, including previous-reader rollback
 and transactional publication fences. Neither checkout's tracked source nor
-production data is modified. CI pins the reviewed Magnus revision; see
+production data is modified. CI pins the reviewed Ardent revision; see
 [compatibility](docs/MAGNUS.md).
 
 Extracted from [Magnus / Ardent](https://github.com/ChefTaco/magnus).

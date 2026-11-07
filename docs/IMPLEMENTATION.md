@@ -47,7 +47,7 @@ current enrollment and signed admission evidence before resuming. Managed
 ownership can forbid legacy dispatch even when the authority is healthy. No
 admission control was bypassed. The subsequent managed context-only rollout
 completed individual production-profile acceptance on 2026-11-03. See
-[reviewed Magnus compatibility](MAGNUS.md). Isolated pilots use synthetic data,
+[reviewed Ardent and Magnus compatibility](MAGNUS.md). Isolated pilots use synthetic data,
 no enabled channels, no scheduled work, and no external tool effects. Operational
 receipts and the complete profile inventory remain private. A cached installation
 inventory can lag a verified runtime; record that gap separately rather than

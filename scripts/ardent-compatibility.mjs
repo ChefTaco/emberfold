@@ -7,11 +7,11 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 
 const { values } = parseArgs({ options: { source: { type: 'string' }, revision: { type: 'string', default: 'HEAD' } } });
-if (!values.source) throw new Error('Use --source PATH and optionally --revision COMMIT to select a trusted Magnus checkout');
+if (!values.source) throw new Error('Use --source PATH and optionally --revision COMMIT to select a trusted Ardent checkout (github.com/ChefTaco/Ardent)');
 const root = resolve(import.meta.dirname, '..');
 const source = resolve(values.source);
 const revision = execFileSync('git', ['-C', source, 'rev-parse', '--verify', '--end-of-options', `${values.revision}^{commit}`], { encoding: 'utf8' }).trim();
-const temporary = await mkdtemp(join(tmpdir(), 'emberfold-magnus-'));
+const temporary = await mkdtemp(join(tmpdir(), 'emberfold-ardent-'));
 const manifestSchema = z.object({ name: z.literal('@hivemagnus/ardent'), type: z.literal('module'), version: z.string().min(1),
   dependencies: z.record(z.string(), z.string()), devDependencies: z.record(z.string(), z.string()) });
 const tests = ['test/context.test.ts', 'test/context-checkpoints.test.ts', 'test/emberfold.test.ts'];
@@ -21,10 +21,12 @@ try {
   await mkdir(env.HOME);
   const run = (command, args, cwd, timeout = 180000) => execFileSync(command, args,
     { cwd, env, encoding: 'utf8', timeout, maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
-  const archive = join(temporary, 'magnus.tar');
-  execFileSync('git', ['-C', source, 'archive', '--output', archive, revision, 'packages/ardent']);
-  run('tar', ['-xf', archive, '-C', temporary], temporary);
-  const consumer = join(temporary, 'packages/ardent');
+  // Ardent's tracked source at the selected commit: the repository root of a ChefTaco/Ardent checkout.
+  const archive = join(temporary, 'ardent.tar');
+  execFileSync('git', ['-C', source, 'archive', '--output', archive, revision]);
+  const consumer = join(temporary, 'ardent');
+  await mkdir(consumer);
+  run('tar', ['-xf', archive, '-C', consumer], temporary);
   const manifestPath = join(consumer, 'package.json');
   const original = manifestSchema.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
   const dependency = original.dependencies['@hivemagnus/emberfold'];
@@ -63,7 +65,7 @@ try {
     package_sha256: createHash('sha256').update(await readFile(tarball)).digest('hex'), package_integrity: pack.integrity,
     typecheck: true, tests_passed: results.numPassedTests, at: new Date().toISOString() };
   await mkdir(join(root, 'output/compatibility'), { recursive: true });
-  await writeFile(join(root, 'output/compatibility/magnus.json'), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600 });
+  await writeFile(join(root, 'output/compatibility/ardent.json'), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600 });
   console.log(JSON.stringify(receipt));
 } finally {
   await rm(temporary, { recursive: true, force: true });

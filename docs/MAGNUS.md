@@ -1,9 +1,13 @@
-# Magnus compatibility
+# Ardent and Magnus compatibility
 
 ## Reviewed consumer
 
-Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`) still declares
-`@hivemagnus/emberfold` exactly `0.1.0`. Its context fitting, checkpoint storage
+Ardent, the engine's consumer, now lives in its own repository,
+[ChefTaco/Ardent](https://github.com/ChefTaco/Ardent); it was previously
+`packages/ardent` in the Magnus monorepo. Ardent 2.1.1 (`90ec90594a15ad412e1385dc6cb9972f15eec66a`, the
+repository's extraction commit) still declares `@hivemagnus/emberfold` exactly
+`0.1.0`. Before the move, Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`)
+was the reviewed consumer with the same declaration. Its context fitting, checkpoint storage
 adapter, policy pinning, and additive SQLite metadata retain the original engine
 contract. Managed context-only adoption now preserves extended legacy runtimes
 without requiring a wholesale public Ardent installation. Enrollment, A2A
@@ -18,9 +22,10 @@ storage-independent engine.
 
 ## Compatibility gate
 
-`npm run compat:magnus -- --source PATH --revision COMMIT` builds and packs the
-current engine, extracts Ardent's tracked source at the selected trusted commit,
-and installs the tarball into a disposable project outside either checkout. It
+`npm run compat:ardent -- --source PATH --revision COMMIT` builds and packs the
+current engine, extracts the tracked source of an Ardent checkout at the selected
+trusted commit, and installs the tarball into a disposable project outside either
+checkout. It
 typechecks Ardent and runs its original context/checkpoint tests against that
 tarball, not the already-published dependency. Installation scripts are disabled;
 child processes receive no deployment or provider credentials. Tests must all
@@ -28,9 +33,10 @@ pass, with no skipped cases. A private receipt goes under `output/compatibility/
 The command executes source/tests from the selected repository: use only a trusted
 checkout and revision. It does not fetch or update the checkout for you.
 
-CI runs the gate on both supported Node lines against the reviewed commit above.
-When Magnus changes, review its adapter, policy, store, model-request rendering,
-and context tests before updating that pin. For a new engine release, verify the
+CI runs the gate on both supported Node lines against the reviewed Ardent commit
+above. When Ardent changes, review its adapter, policy, store, model-request
+rendering, and context tests before updating that pin; prefer a release tag once
+one exists. For a new engine release, verify the
 candidate before changing Ardent's exact dependency. Do not republish `0.1.0` or
 move an existing tag to incorporate tooling changes.
 
