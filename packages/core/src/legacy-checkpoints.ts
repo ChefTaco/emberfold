@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ChatMessage, Checkpoint, Message } from './contracts.js';
 import { checkpointDigest, sha256, sourceDigest, validateCheckpoint } from './integrity.js';
@@ -24,7 +24,6 @@ export type LegacyExchange = { user: LegacyMessage; assistant: LegacyMessage };
 export type ContextTask = { id: string; session_id: string | null; caller: string; context: string; prompt: string };
 export type CompactionCall = (route: ModelPolicy['compaction']['routes'][number], prompt: string, signal: AbortSignal) => Promise<string>;
 
-const sha = (value: string): string => createHash('sha256').update(value).digest('hex');
 // Provider tokenizers are not uniform; pair this conservative planning estimate
 // with the configured ceiling and the llama.cpp chat-template count when exposed.
 export function tokenEstimate(value: unknown): number {
@@ -32,7 +31,7 @@ export function tokenEstimate(value: unknown): number {
   return Math.ceil(Buffer.byteLength(serialized, 'utf8') / 3) + 64;
 }
 export function legacySourceDigest(rows: LegacyMessage[]): string {
-  return sha(rows.map(row => JSON.stringify([row.sequence, row.session_id, row.task_id, row.role, row.content, row.created_ms])).join('\n'));
+  return sha256(rows.map(row => JSON.stringify([row.sequence, row.session_id, row.task_id, row.role, row.content, row.created_ms])).join('\n'));
 }
 
 export interface CheckpointStorage {
@@ -72,7 +71,7 @@ export class LegacyCheckpointManager {
       const checkpoint = CheckpointRow.parse(row);
       if (checkpoint.session_id !== sessionId || checkpoint.caller !== caller || checkpoint.context !== context) throw new Error('Checkpoint identity mismatch');
       const summary = SummarySchema.parse(JSON.parse(checkpoint.summary_json) as unknown);
-      if (sha(checkpoint.summary_json) !== checkpoint.summary_sha256) throw new Error('Checkpoint summary digest mismatch');
+      if (sha256(checkpoint.summary_json) !== checkpoint.summary_sha256) throw new Error('Checkpoint summary digest mismatch');
       const source = this.rows(sessionId, checkpoint.source_watermark);
       if (source.at(-1)?.sequence !== checkpoint.source_watermark || legacySourceDigest(source) !== checkpoint.source_sha256) throw new Error('Checkpoint source digest mismatch');
       const ids = new Set(source.map(row => row.sequence));
@@ -174,7 +173,7 @@ export class LegacyCheckpointManager {
       const summaryJson = JSON.stringify(summary);
       const checkpoint: LegacyCheckpoint = { id: randomUUID(), session_id: session.id, caller: session.caller, context: session.context,
         parent_id: head.rawId, source_watermark: watermark, source_sha256: sourceSha256,
-        summary_json: summaryJson, summary_sha256: sha(summaryJson), model: usedRoute.model,
+        summary_json: summaryJson, summary_sha256: sha256(summaryJson), model: usedRoute.model,
         reasoning_effort: usedRoute.reasoning_effort, policy_revision: loaded.policy.revision, policy_sha256: loaded.sha256,
         source_tokens: tokenEstimate(sourceWindow.map(exchange => [exchange.user.content, exchange.assistant.content])),
         summary_tokens: tokenEstimate(summary), created_ms: Date.now(), validation: 'passed' };

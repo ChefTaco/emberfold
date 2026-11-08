@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import type { ChatMessage } from './contracts.js';
+import { sha256 } from './integrity.js';
 export { LegacyCheckpointManager, SummarySchema, legacySourceDigest, tokenEstimate } from './legacy-checkpoints.js';
 export type { ContextTask, LegacyMessage, LegacyCheckpoint, LegacyExchange, CheckpointStorage, CompactionCall, ContextSummary } from './legacy-checkpoints.js';
 
@@ -91,7 +91,7 @@ export function compactModelMessages(
     if (removable < 0) break;
     const removed = turns.splice(removable, 1)[0] ?? [];
     const call = removed[0]?.tool_calls?.map(item => `${item.function.name}:${item.id}`).join(',') ?? '';
-    const digest = createHash('sha256').update(JSON.stringify(removed)).digest('hex');
+    const digest = sha256(JSON.stringify(removed));
     summaries.push(`${call} sha256:${digest}`);
     omittedTransactions++;
     output = build();
@@ -99,7 +99,7 @@ export function compactModelMessages(
   if (size(output) > limitChars) {
     for (const turn of turns) for (const message of turn) {
       if (message.role !== 'tool' || !message.content || message.content.length <= Math.max(1024, Math.floor(limitChars / 2))) continue;
-      const digest = createHash('sha256').update(message.content).digest('hex');
+      const digest = sha256(message.content);
       message.content = JSON.stringify({ truncated: true, journal_sha256: digest,
         excerpt: message.content.slice(0, Math.min(8_000, Math.max(256, Math.floor(limitChars / 3)))),
         source_ids: [...sourceIds].slice(0, 100), artifact_ids: [...artifactIds].slice(0, 100) });
