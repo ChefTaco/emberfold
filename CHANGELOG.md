@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2026-11-10
+
+### Security
+
+- Run containers on the pinned, patched Node 26 runtime with maintained system libraries.
+
 ## 0.2.1 - 2026-11-05
 
 ### Security
