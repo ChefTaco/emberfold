@@ -495,5 +495,25 @@ class OnboardingTests(unittest.TestCase):
                 engine.update_model("synthetic", 32000, api_mode="codex_app_server")
 
 
+class NodeRuntimeSecurityTests(unittest.TestCase):
+    def test_patched_node_security_minimums(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / 'node_modules/@hivemagnus/emberfold/package.json'
+            package.parent.mkdir(parents=True)
+            package.write_text(json.dumps({'version': '0.1.0'}))
+            for version, accepted in [('24.22.1', False), ('24.22.2', False), ('24.22.3', True),
+                                      ('26.13.0', False), ('26.13.1', True), ('26.14.0', True),
+                                      ('25.0.0', False), ('27.0.0', False)]:
+                with self.subTest(version=version), patch.object(protocol, 'ROOT', root), \
+                        patch.object(protocol.shutil, 'which', return_value='/synthetic/node'), \
+                        patch.object(protocol.subprocess, 'run', return_value=types.SimpleNamespace(stdout='v' + version)):
+                    if accepted:
+                        self.assertEqual(protocol.node_path(), '/synthetic/node')
+                    else:
+                        with self.assertRaisesRegex(protocol.EmberfoldError, 'NODE_UNSUPPORTED'):
+                            protocol.node_path()
+
+
 if __name__ == "__main__":
     unittest.main()

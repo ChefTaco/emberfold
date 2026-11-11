@@ -9,7 +9,7 @@ your memory provider, change tool permissions, or require an Emberfold account.
 
 Use a configured Hermes installation with the context-engine and plugin LLM
 interfaces. The first verified runtime is Hermes `cabaf053b5b42885a9b11827925473748e54b090`.
-Install Node `^24.22.1` or `^26.13.0`. No root privileges or Docker are required.
+Install Node `^24.22.3` or `^26.13.1`. No root privileges or Docker are required.
 
 ```bash
 hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref 416b6fb66149ac17fbca54cb46ec79f39214d647 --enable
