@@ -22,11 +22,11 @@ def node_path():
     for candidate in candidates:
         version = subprocess.run([candidate, "--version"], capture_output=True, text=True, timeout=10, check=True).stdout.strip()
         parts = tuple(int(part) for part in version.lstrip("v").split("."))
-        if parts[0] == 24 and parts >= (24, 22, 1) or parts[0] == 26 and parts >= (26, 13, 0):
+        if parts[0] == 24 and parts >= (24, 22, 3) or parts[0] == 26 and parts >= (26, 13, 1):
             binary = candidate
             break
     if not binary:
-        raise EmberfoldError("NODE_UNSUPPORTED: require ^24.22.1 or ^26.13.0")
+        raise EmberfoldError("NODE_UNSUPPORTED: require ^24.22.3 or ^26.13.1")
     if not (ROOT / "node_modules/@hivemagnus/emberfold/package.json").is_file():
         raise EmberfoldError("DEPENDENCIES_MISSING: run hermes emberfold setup --install-deps")
     if json.loads((ROOT / "node_modules/@hivemagnus/emberfold/package.json").read_text())["version"] != "0.1.0":

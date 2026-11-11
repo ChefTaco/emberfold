@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Require patched Node.js 24.22.3 or 26.13.1, and refresh build and runtime image pins for upstream TLS and HTTP/2 security fixes.
+
 ## [0.2.2] - 2026-11-10
 
 ### Security

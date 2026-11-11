@@ -3,7 +3,7 @@
   "description": "JSON command line interface for Emberfold context continuity",
   "license": "Apache-2.0", "author": "ChefTaco",
   "repository": { "type": "git", "url": "git+https://github.com/ChefTaco/emberfold.git", "directory": "packages/cli" },
-  "engines": { "node": "^24.22.1 || ^26.13.0" },
+  "engines": { "node": "^24.22.3 || ^26.13.1" },
   "bin": { "emberfold": "dist/index.js" },
   "files": ["dist", "LICENSE", "NOTICE", "README.md"], "publishConfig": { "access": "public" },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
