@@ -13,7 +13,7 @@ for (const [path, request, response] of [['/v1/prepare', 'PrepareRequest', 'Prep
       413: { description: 'Request too large' }, 415: { description: 'JSON required' }, 422: { description: 'Context cannot be prepared' }, 429: { description: 'Overloaded' }, 504: { description: 'Deadline exceeded' } } } };
 }
 for (const path of ['/healthz', '/readyz']) paths[path] = { get: { responses: { 200: { description: 'Service metadata' }, 503: { description: 'Service is draining' } } } };
-documents['contracts/openapi.json'] = { openapi: '3.1.0', info: { title: 'Emberfold', version: '0.2.1' }, paths,
+documents['contracts/openapi.json'] = { openapi: '3.1.0', info: { title: 'Emberfold', version: JSON.parse(await readFile('package.json', 'utf8')).version }, paths,
   components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } }, schemas: Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [name, z.toJSONSchema(schema, { target: 'draft-2020-12', io: name === 'PrepareResult' ? 'output' : 'input' })])) } };
 await mkdir('contracts', { recursive: true });
 for (const [path, document] of Object.entries(documents)) {
