@@ -116,7 +116,7 @@ unchanged. Configuration and plugin-version rollback never discard newer message
 
 ## Independent release streams
 
-The library, JSON CLI, and service are at `0.2.1`; the service image is a
+The library, JSON CLI, and service are at `0.3.0`; the service image is a
 linux/amd64 and linux/arm64 index with a build provenance attestation. Its
 runtime stage ships only Node: npm, npx, Corepack, Yarn, and apt are removed,
 so install nothing inside a running container. Hermes plugin `0.1.1` is
