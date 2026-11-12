@@ -20,6 +20,44 @@ configuration; do not put secret values in JSON or request bodies.
 }
 ```
 
+### Routing through Emberpath
+
+The opt-in `emberpath` provider type routes summarization through an Emberpath
+gateway's OpenAI-compatible model API. It shares the `http` implementation and
+sends `POST <emberpath>/v1/chat/completions` with `Authorization: Bearer <client key>`.
+Existing `http` and `codex` providers are unchanged.
+
+```json
+{
+  "default_provider_id": "emberpath",
+  "providers": [{ "type": "emberpath", "id": "emberpath", "model": "configured-model" }]
+}
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `model` | required | Model name or Emberpath route to request. |
+| `base_url` | unset | Explicit Emberpath root URL. Overrides `base_url_env`. |
+| `base_url_env` | `EMBERPATH_URL` | Environment variable holding the Emberpath root URL. |
+| `api_key_env` | `EMBERPATH_API_KEY` | Environment variable holding the Emberpath client API key. |
+| `input_tokens_path`, `timeout_ms` | unset | Same as the `http` provider. |
+
+The URL is the Emberpath root, for example `https://emberpath.example.com`;
+`/v1` is appended unless the path already ends in `/v1`. HTTPS is required
+except for loopback hosts. Startup fails when the URL or key is missing.
+
+Create a dedicated client key per caller so Emberpath attributes its traffic.
+Emberpath attributes requests whose key metadata carries `actorId`:
+
+```bash
+hive-router create-key --name "emberfold" --metadata '{"actorId":"emberfold","service":"emberfold"}'
+```
+
+Use the actor ID the rest of the suite knows this caller by (for an agent, its
+agent ID). The plaintext key is printed once; store it only in the variable named
+by `api_key_env`. Keys enrolled through Emberpath's actor credential flow already
+carry `actorId`.
+
 Use a high-entropy bearer token of at least 32 characters. Only configured provider
 IDs are accepted. Remote access requires a TLS reverse proxy; the host-side
 container port is bound to loopback. Health probes reveal no prompts or secrets.

@@ -34,6 +34,8 @@ const result = await prepareContext({
 Provide a summarizer adapter when older exchanges need compression. Configure
 providers explicitly; no network call or cloud fallback happens implicitly.
 Optional adapters are exported from `@hivemagnus/emberfold/adapters`.
+The service and CLI accept `http`, opt-in `emberpath` (an Emberpath gateway; see
+[operations](docs/OPERATIONS.md#routing-through-emberpath)), and `codex` providers.
 
 ## Hermes Agent
 

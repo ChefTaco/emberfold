@@ -7,17 +7,36 @@ const HttpProvider = z.object({ type: z.literal('http'), id: z.string().min(1), 
   api_key_env: z.string().optional(), input_tokens_path: z.string().optional(), timeout_ms: z.number().int().positive().optional() }).strict();
 const CodexProvider = z.object({ type: z.literal('codex'), id: z.string().min(1), command: z.string().min(1), model: z.string().min(1),
   cwd: z.string().min(1), effort: z.string().optional(), auth_mode: z.enum(['chatgpt', 'apiKey']).optional(), timeout_ms: z.number().int().positive().optional() }).strict();
-export const ServiceConfigSchema = z.object({ providers: z.array(z.discriminatedUnion('type', [HttpProvider, CodexProvider])).default([]),
+const EnvName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Invalid environment variable name');
+const EmberpathProvider = z.object({ type: z.literal('emberpath'), id: z.string().min(1), model: z.string().min(1),
+  base_url: z.string().url().optional(), base_url_env: EnvName.default('EMBERPATH_URL'), api_key_env: EnvName.default('EMBERPATH_API_KEY'),
+  input_tokens_path: z.string().optional(), timeout_ms: z.number().int().positive().optional() }).strict();
+export const ServiceConfigSchema = z.object({ providers: z.array(z.discriminatedUnion('type', [HttpProvider, EmberpathProvider, CodexProvider])).default([]),
   default_provider_id: z.string().optional(), token_env: z.string().default('EMBERFOLD_API_TOKEN'),
   host: z.enum(['127.0.0.1', '::1', '0.0.0.0']).default('127.0.0.1'), port: z.number().int().min(0).max(65535).default(8096),
   max_body_bytes: z.number().int().positive().default(16777216), concurrency: z.number().int().min(1).max(128).default(2),
   timeout_ms: z.number().int().positive().default(120000) }).strict();
 export type ServiceConfig = z.infer<typeof ServiceConfigSchema>;
+type EmberpathProviderConfig = z.infer<typeof EmberpathProvider>;
+const Loopback = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** Resolves an `emberpath` provider into the shared OpenAI-compatible `http` configuration at `<emberpath>/v1`. */
+export function emberpathHttpConfig(provider: EmberpathProviderConfig, env: NodeJS.ProcessEnv = process.env) {
+  const configured = provider.base_url ?? env[provider.base_url_env];
+  if (!configured) throw new Error('PROVIDER_UNCONFIGURED: Emberpath URL is missing');
+  let url: URL;
+  try { url = new URL(configured); } catch { throw new Error('Invalid provider URL'); }
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && Loopback.has(url.hostname))) throw new Error('Invalid provider URL: Emberpath requires HTTPS');
+  const path = url.pathname.replace(/\/+$/, '');
+  url.pathname = path.endsWith('/v1') ? path : `${path}/v1`;
+  return { id: provider.id, base_url: url.href, model: provider.model, api_key_env: provider.api_key_env,
+    input_tokens_path: provider.input_tokens_path, timeout_ms: provider.timeout_ms };
+}
 export function configureProviders(config: ServiceConfig, env: NodeJS.ProcessEnv = process.env): Map<string, Summarizer> {
   const providers = new Map<string, Summarizer>();
   for (const provider of config.providers) {
     if (providers.has(provider.id)) throw new Error('Duplicate provider ID');
-    providers.set(provider.id, provider.type === 'http' ? createHttpSummarizer(provider, env) : createCodexSummarizer(provider, env));
+    providers.set(provider.id, provider.type === 'http' ? createHttpSummarizer(provider, env)
+      : provider.type === 'emberpath' ? createHttpSummarizer(emberpathHttpConfig(provider, env), env) : createCodexSummarizer(provider, env));
   }
   if (config.default_provider_id && !providers.has(config.default_provider_id)) throw new Error('Default provider is absent');
   return providers;
