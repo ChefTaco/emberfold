@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an opt-in `emberpath` provider type for the service and CLI. It shares the `http` implementation, takes the gateway root from `base_url` or `EMBERPATH_URL` (appending `/v1`), and sends the client key from `EMBERPATH_API_KEY` as a Bearer token. Existing provider configurations are unchanged.
+
 ## [0.2.3] - 2026-11-11
 
 - Require patched Node.js 24.22.3 or 26.13.1, and refresh build and runtime image pins for upstream TLS and HTTP/2 security fixes.
