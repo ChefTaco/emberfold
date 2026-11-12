@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-12
+
 - Add an opt-in `emberpath` provider type for the service and CLI. It shares the `http` implementation, takes the gateway root from `base_url` or `EMBERPATH_URL` (appending `/v1`), and sends the client key from `EMBERPATH_API_KEY` as a Bearer token. Existing provider configurations are unchanged.
 
 ## [0.2.3] - 2026-11-11

@@ -1,5 +1,5 @@
 {
-  "name": "@hivemagnus/emberfold-cli", "version": "0.2.3", "type": "module",
+  "name": "@hivemagnus/emberfold-cli", "version": "0.3.0", "type": "module",
   "description": "JSON command line interface for Emberfold context continuity",
   "license": "Apache-2.0", "author": "ChefTaco",
   "repository": { "type": "git", "url": "git+https://github.com/ChefTaco/emberfold.git", "directory": "packages/cli" },
@@ -7,5 +7,5 @@
   "bin": { "emberfold": "dist/index.js" },
   "files": ["dist", "LICENSE", "NOTICE", "README.md"], "publishConfig": { "access": "public" },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
-  "dependencies": { "@hivemagnus/emberfold": "0.2.3", "@hivemagnus/emberfold-server": "0.2.3" }
+  "dependencies": { "@hivemagnus/emberfold": "0.3.0", "@hivemagnus/emberfold-server": "0.3.0" }
 }
