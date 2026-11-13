@@ -27,6 +27,36 @@ describe('optional summarizers', () => {
     expect(await adapter.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).toBe('{"items":[]}');
     expect(await adapter.countTokens!([], [], AbortSignal.timeout(5000))).toBe(123);
   });
+  it('reports unreachable, slow and malformed HTTP providers with stable codes and passes caller cancellation through', async () => {
+    const listen = async (handler: Parameters<typeof createServer>[1]) => {
+      const server = createServer(handler);
+      servers.push(server);
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
+      return `http://127.0.0.1:${address.port}/v1`;
+    };
+    const input = () => ({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) });
+    const closed = await listen(() => {});
+    await new Promise<void>(resolve => servers.pop()!.close(() => resolve()));
+    const unreachable = createHttpSummarizer({ id: 'fixture', base_url: closed, model: 'fixture', input_tokens_path: 'tokens' });
+    await expect(unreachable.summarize(input())).rejects.toThrow('PROVIDER_FAILED: request failed');
+    await expect(unreachable.countTokens!([], [], AbortSignal.timeout(5000))).rejects.toThrow('TOKENIZER_UNAVAILABLE: request failed');
+    const page = await listen((_request, response) => { response.setHeader('Content-Type', 'text/html'); response.end('<html>proxy sign-in</html>'); });
+    const malformed = createHttpSummarizer({ id: 'fixture', base_url: page, model: 'fixture', input_tokens_path: 'tokens' });
+    await expect(malformed.summarize(input())).rejects.toThrow('PROVIDER_FAILED: invalid response');
+    await expect(malformed.countTokens!([], [], AbortSignal.timeout(5000))).rejects.toThrow('TOKENIZER_UNAVAILABLE: invalid response');
+    const shapeless = await listen((_request, response) => { response.setHeader('Content-Type', 'application/json'); response.end('{"choices":[]}'); });
+    await expect(createHttpSummarizer({ id: 'fixture', base_url: shapeless, model: 'fixture' }).summarize(input())).rejects.toThrow('PROVIDER_FAILED: invalid response');
+    const failing = await listen((_request, response) => { response.statusCode = 503; response.end(); });
+    await expect(createHttpSummarizer({ id: 'fixture', base_url: failing, model: 'fixture' }).summarize(input())).rejects.toThrow('PROVIDER_FAILED: HTTP 503');
+    const silent = await listen(() => {});
+    await expect(createHttpSummarizer({ id: 'fixture', base_url: silent, model: 'fixture', timeout_ms: 100 }).summarize(input())).rejects.toThrow('PROVIDER_FAILED: request timed out');
+    const controller = new AbortController();
+    const cancelled = createHttpSummarizer({ id: 'fixture', base_url: silent, model: 'fixture' }).summarize({ ...input(), signal: controller.signal });
+    controller.abort(new Error('Caller cancelled'));
+    await expect(cancelled).rejects.toThrow('Caller cancelled');
+  });
   it('requires configured credentials and rejects credential-bearing URLs', () => {
     expect(() => createHttpSummarizer({ id: 'fixture', base_url: 'https://example.com/v1', model: 'fixture', api_key_env: 'ABSENT_FIXTURE_KEY' }, {})).toThrow('credential');
     expect(() => createHttpSummarizer({ id: 'fixture', base_url: 'https://alice:synthetic@example.com', model: 'fixture' })).toThrow('URL');
@@ -39,6 +69,8 @@ describe('optional summarizers', () => {
     expect(await adapter.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).toBe('{"items":[]}');
     const broken = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, EMBERFOLD_FIXTURE_FAIL: '1' });
     await expect(broken.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CODEX_REQUEST');
+    const malformed = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, EMBERFOLD_FIXTURE_MALFORMED: '1' });
+    await expect(malformed.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CODEX_PROTOCOL_INVALID');
     const hanging = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 100 }, { ...process.env, EMBERFOLD_FIXTURE_HANG: '1' });
     await expect(hanging.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CANCELLED');
   });

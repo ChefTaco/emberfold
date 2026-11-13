@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed
+
+- HTTP provider and tokenizer failures now carry stable codes. An unreachable provider, a provider timeout, or a non-JSON or malformed provider response is reported as `PROVIDER_FAILED` (`TOKENIZER_UNAVAILABLE` for token counting) instead of an uncoded error. The service previously answered these with `400` or `422` `INVALID_REQUEST`, and the CLI exited 2 as if the input were invalid; the service now answers `422` with the provider code and the CLI exits 4. Caller cancellation is passed through unchanged.
+- Model output that is still unparseable or schema-invalid after the repair attempt fails with `INVALID_SUMMARY` instead of surfacing as a malformed request (`400`) from the service.
+- Malformed Codex app-server replies fail with `CODEX_PROTOCOL_INVALID` instead of an uncoded validation error.
+- The CLI reports an expired `timeout_ms` deadline as `DEADLINE_EXCEEDED` with exit code 4 instead of `INVALID_INPUT` with exit code 2.
+- The service answers an oversized request body with `413` without abandoning the connection mid-upload. It discards the rest of the body for at most five seconds (or `timeout_ms`, if shorter), so a client that is still sending reads the response, and the connection stays usable.
+- `fitContext` stops shortening tool results once the prompt fits. Previously, after the first shortened result brought the prompt within budget, every remaining unprotected tool result of 512 characters or more was still cut to at most half its length.
+
+### Changed
+
+- `tokenEstimate` has one implementation, exported unchanged from `@hivemagnus/emberfold` and `@hivemagnus/emberfold/compat`.
+
 ## [0.3.0] - 2026-11-12
 
 - Add an opt-in `emberpath` provider type for the service and CLI. It shares the `http` implementation, takes the gateway root from `base_url` or `EMBERPATH_URL` (appending `/v1`), and sends the client key from `EMBERPATH_API_KEY` as a Bearer token. Existing provider configurations are unchanged.

@@ -39,16 +39,27 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
     const timeout = setTimeout(() => { controller.abort(); response.once('finish', () => request.destroy()); send(response, 504, { error: 'DEADLINE_EXCEEDED' }); }, config.timeout_ms);
     response.on('close', () => { if (!response.writableEnded) controller.abort(); });
     let status = 200;
+    let oversized = false;
+    let linger: NodeJS.Timeout | undefined;
     try {
       const chunks: Buffer[] = [];
       let size = 0;
       for await (const chunk of request) {
         controller.signal.throwIfAborted();
+        if (oversized) continue;
         const buffer = Buffer.from(chunk as Uint8Array);
         size += buffer.length;
-        if (size > config.max_body_bytes) { status = 413; send(response, status, { error: 'BODY_TOO_LARGE' }); request.resume(); return; }
-        chunks.push(buffer);
+        // Answer at once, then briefly discard the rest: leaving the loop abandons the request stream under a
+        // client that is still uploading, which then sees a reset or a stalled connection, not this response.
+        if (size > config.max_body_bytes) {
+          oversized = true;
+          chunks.length = 0;
+          status = 413;
+          send(response, status, { error: 'BODY_TOO_LARGE' });
+          linger = setTimeout(() => request.destroy(), Math.min(5000, config.timeout_ms));
+        } else chunks.push(buffer);
       }
+      if (oversized) return;
       const input: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       if (request.url === '/v1/checkpoints/validate') {
         const parsed = ValidationRequestSchema.parse(input);
@@ -61,11 +72,13 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
         send(response, 200, await operation(parsed, adapters));
       }
     } catch (error: unknown) {
+      if (oversized) return;
       status = controller.signal.aborted ? 504 : error instanceof SyntaxError || error instanceof z.ZodError ? 400 : 422;
       const code = error instanceof Error ? /^[A-Z_]+(?=:|$)/.exec(error.message)?.[0] ?? 'INVALID_REQUEST' : 'INVALID_REQUEST';
       send(response, status, { error: code });
     } finally {
       clearTimeout(timeout);
+      clearTimeout(linger);
       requests.delete(controller);
       active--;
       log({ event: 'request', operation: request.url, status, duration_ms: Date.now() - started });

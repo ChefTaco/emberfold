@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ChatMessage, Checkpoint, Message } from './contracts.js';
-import { checkpointDigest, sha256, sourceDigest, validateCheckpoint } from './integrity.js';
+import { checkpointDigest, sha256, sourceDigest, tokenEstimate, validateCheckpoint } from './integrity.js';
 export type ModelPolicy = { compaction: { enabled: boolean; routes: Array<{ backend: 'codex'; model: string; reasoning_effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' }>; prompt_budget_tokens: number; output_reserve_tokens: number; checkpoint_max_tokens: number; recent_max_tokens: number; trigger_ratio: number }; revision: number };
 export type LoadedModelPolicy = { policy: ModelPolicy; sha256: string };
 export const SummarySchema = z.object({ items: z.array(z.object({
@@ -24,12 +24,6 @@ export type LegacyExchange = { user: LegacyMessage; assistant: LegacyMessage };
 export type ContextTask = { id: string; session_id: string | null; caller: string; context: string; prompt: string };
 export type CompactionCall = (route: ModelPolicy['compaction']['routes'][number], prompt: string, signal: AbortSignal) => Promise<string>;
 
-// Provider tokenizers are not uniform; pair this conservative planning estimate
-// with the configured ceiling and the llama.cpp chat-template count when exposed.
-export function tokenEstimate(value: unknown): number {
-  const serialized = JSON.stringify(value);
-  return Math.ceil(Buffer.byteLength(serialized, 'utf8') / 3) + 64;
-}
 export function legacySourceDigest(rows: LegacyMessage[]): string {
   return sha256(rows.map(row => JSON.stringify([row.sequence, row.session_id, row.task_id, row.role, row.content, row.created_ms])).join('\n'));
 }

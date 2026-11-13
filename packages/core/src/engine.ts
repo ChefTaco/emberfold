@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { PrepareRequestSchema, PrepareResultSchema, type PrepareRequest, type PrepareResult, type Adapters,
+import { ChatMessageSchema, PrepareRequestSchema, PrepareResultSchema, type PrepareRequest, type PrepareResult, type Adapters,
   type ChatMessage, type Checkpoint, type Message, type Summary, type Policy } from './contracts.js';
-import { canonical, checkpointDigest, resolveSources, sha256, sourceDigest, validateCheckpoint, validateSummary } from './integrity.js';
+import { canonical, checkpointDigest, resolveSources, sha256, sourceDigest, tokenEstimate, validateCheckpoint, validateSummary } from './integrity.js';
 import { validateToolTransactions } from './compat.js';
 
-export const tokenEstimate = (value: unknown): number => Math.ceil(Buffer.byteLength(JSON.stringify(value), 'utf8') / 3) + 64;
 export const profiles: Readonly<Record<Policy['profile'], string>> = {
   general: 'Preserve goals, constraints, decisions, corrections, commitments and unfinished work. Preserve uncertainty about external effects.',
   creative: 'Preserve reported approved canon, relationships, chronology and unresolved plot threads. Only the caller can protect or approve canon. Do not invent approval.',
@@ -105,7 +104,9 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
         pending = [];
         return;
       } catch (error: unknown) {
-        if (attempt === 1) throw error;
+        // Unparseable or schema-invalid model output is a summary failure, never a malformed caller request.
+        if (attempt === 1) throw error instanceof SyntaxError || error instanceof z.ZodError
+          ? new Error('INVALID_SUMMARY: summarizer output is not a valid summary', { cause: error }) : error;
         inputPrompt = JSON.stringify({ ...JSON.parse(basePrompt) as object,
           validation_error: error instanceof Error ? error.message.slice(0, 1000) : 'Invalid summary',
           repair_instruction: 'Correct the rejected candidate. Retained prior item IDs require identical complete item bodies; changed facts require new IDs. Preserve supported corrections and unfinished work. Return only valid JSON.',
@@ -209,7 +210,6 @@ export async function rebuildCheckpoint(value: unknown, adapters: Adapters = {})
 export const FitRequestSchema = z.object({ messages: z.array(ChatMessageSchema), tools: z.array(z.record(z.string(), z.unknown())).default([]),
   max_input_tokens: z.number().int().positive(), protected_indices: z.array(z.number().int().nonnegative()).default([]),
   require_measured_tokens: z.boolean().default(false) }).strict();
-import { ChatMessageSchema } from './contracts.js';
 export async function fitContext(value: unknown, adapters: Adapters = {}): Promise<{ messages: ChatMessage[]; tokens: { input_tokens: number; max_input_tokens: number; method: 'provider' | 'estimate' }; changes: PrepareResult['changes'] }> {
   const request = FitRequestSchema.parse(value);
   validateToolTransactions(request.messages);
@@ -236,7 +236,9 @@ export async function fitContext(value: unknown, adapters: Adapters = {}): Promi
     measured = await count(build(), request.tools, adapters, request.require_measured_tokens);
   }
   if (measured.value > request.max_input_tokens) {
-    for (const block of blocks) for (let offset = 0; offset < block.messages.length; offset++) {
+    shorten: for (const block of blocks) for (let offset = 0; offset < block.messages.length; offset++) {
+      // Shorten only as many results as the budget needs; later results stay intact once the prompt fits.
+      if (measured.value <= request.max_input_tokens) break shorten;
       const message = block.messages[offset]!;
       const index = block.indices[offset]!;
       if (message.role !== 'tool' || protectedIndices.has(index) || !message.content || message.content.length < 512) continue;

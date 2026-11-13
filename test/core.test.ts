@@ -94,6 +94,11 @@ describe('portable context continuity', () => {
     expect(calls).toBe(2);
     expect(result.compacted).toBe(true);
   });
+  it('reports model output that stays unparseable or schema-invalid as an invalid summary', async () => {
+    const request = fixture();
+    await expect(prepareContext(request, { summarizer: { ...deterministicSummarizer, summarize: async () => '<html>upstream error</html>' } })).rejects.toThrow(/^INVALID_SUMMARY: /);
+    await expect(prepareContext(request, { summarizer: { ...deterministicSummarizer, summarize: async () => '{"items":[]}' } })).rejects.toThrow(/^INVALID_SUMMARY: /);
+  });
   it('validates supersession and resolution without rewriting existing identities', () => {
     const old = { id: 'weekly', kind: 'decision' as const, text: 'Weekly', source_message_ids: ['one'], historical_status: 'historical_unverified' as const,
       epistemic_status: 'decision' as const, supersedes: [], resolves: [] };
@@ -142,6 +147,15 @@ describe('active prompt fitting', () => {
     expect(result.messages[0]?.content).toBe('Current authority');
     expect(result.changes.some(change => change.action === 'truncated')).toBe(true);
     expect(JSON.stringify(messages)).toBe(original);
+  });
+  it('shortens only as many tool results as the budget needs', async () => {
+    const parallel = [{ role: 'system' as const, content: 'Current authority' }, { role: 'user' as const, content: 'Current goal' },
+      { role: 'assistant' as const, content: null, tool_calls: ['first', 'second'].map(id => ({ id, type: 'function' as const, function: { name: 'read', arguments: '{}' } })) },
+      { role: 'tool' as const, tool_call_id: 'first', content: 'x'.repeat(12000) }, { role: 'tool' as const, tool_call_id: 'second', content: 'y'.repeat(12000) }];
+    const result = await fitContext({ messages: parallel, max_input_tokens: 6500 });
+    expect(result.tokens.input_tokens).toBeLessThanOrEqual(6500);
+    expect(result.changes).toEqual([{ action: 'truncated', message_ids: ['3'], source_sha256: sha256('x'.repeat(12000)) }]);
+    expect(result.messages[4]?.content).toBe('y'.repeat(12000));
   });
   it('fails rather than shorten protected tool results or hide oversized tool schemas', async () => {
     await expect(fitContext({ messages, max_input_tokens: 2000, protected_indices: [7] })).rejects.toThrow('BUDGET');
