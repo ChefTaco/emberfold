@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { PrepareRequestSchema, PrepareResultSchema, type PrepareRequest, type PrepareResult, type Adapters,
+import { ChatMessageSchema, PrepareRequestSchema, PrepareResultSchema, type PrepareRequest, type PrepareResult, type Adapters,
   type ChatMessage, type Checkpoint, type Message, type Summary, type Policy } from './contracts.js';
-import { canonical, checkpointDigest, resolveSources, sha256, sourceDigest, validateCheckpoint, validateSummary } from './integrity.js';
+import { canonical, checkpointDigest, resolveSources, sha256, sourceDigest, tokenEstimate, validateCheckpoint, validateSummary } from './integrity.js';
 import { validateToolTransactions } from './compat.js';
 
-export const tokenEstimate = (value: unknown): number => Math.ceil(Buffer.byteLength(JSON.stringify(value), 'utf8') / 3) + 64;
 export const profiles: Readonly<Record<Policy['profile'], string>> = {
   general: 'Preserve goals, constraints, decisions, corrections, commitments and unfinished work. Preserve uncertainty about external effects.',
   creative: 'Preserve reported approved canon, relationships, chronology and unresolved plot threads. Only the caller can protect or approve canon. Do not invent approval.',
@@ -209,7 +208,6 @@ export async function rebuildCheckpoint(value: unknown, adapters: Adapters = {})
 export const FitRequestSchema = z.object({ messages: z.array(ChatMessageSchema), tools: z.array(z.record(z.string(), z.unknown())).default([]),
   max_input_tokens: z.number().int().positive(), protected_indices: z.array(z.number().int().nonnegative()).default([]),
   require_measured_tokens: z.boolean().default(false) }).strict();
-import { ChatMessageSchema } from './contracts.js';
 export async function fitContext(value: unknown, adapters: Adapters = {}): Promise<{ messages: ChatMessage[]; tokens: { input_tokens: number; max_input_tokens: number; method: 'provider' | 'estimate' }; changes: PrepareResult['changes'] }> {
   const request = FitRequestSchema.parse(value);
   validateToolTransactions(request.messages);

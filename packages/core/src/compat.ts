@@ -1,6 +1,7 @@
 import type { ChatMessage } from './contracts.js';
-import { sha256 } from './integrity.js';
-export { LegacyCheckpointManager, SummarySchema, legacySourceDigest, tokenEstimate } from './legacy-checkpoints.js';
+import { sha256, tokenEstimate } from './integrity.js';
+export { tokenEstimate };
+export { LegacyCheckpointManager, SummarySchema, legacySourceDigest } from './legacy-checkpoints.js';
 export type { ContextTask, LegacyMessage, LegacyCheckpoint, LegacyExchange, CheckpointStorage, CompactionCall, ContextSummary } from './legacy-checkpoints.js';
 
 const checkpoint = '\n\nArdent context checkpoint: ';
@@ -8,10 +9,6 @@ const size = (messages: ChatMessage[]): number => JSON.stringify(messages).lengt
 
 export type ContextCompaction = { messages: ChatMessage[]; changed: boolean; omittedTransactions: number; truncatedResults: number };
 export type BudgetedContext = ContextCompaction & { inputTokens: number; maxInputTokens: number; tokenizer: 'provider' | 'estimate' };
-
-function estimatedInputTokens(messages: ChatMessage[], tools: object[]): number {
-  return Math.ceil(Buffer.byteLength(JSON.stringify([messages, tools]), 'utf8') / 3) + 64;
-}
 
 /** Recheck the whole prompt after each tool turn; a character cap alone cannot bound tokens. */
 export async function fitModelMessages(
@@ -29,7 +26,7 @@ export async function fitModelMessages(
       throw new Error('CONTEXT_BUDGET_EXCEEDED: model context cannot fit after deterministic compaction', { cause: error });
     }
     const measured = await countTokens(compacted.messages, tools);
-    const inputTokens = measured ?? estimatedInputTokens(compacted.messages, tools);
+    const inputTokens = measured ?? tokenEstimate([compacted.messages, tools]);
     if (inputTokens <= maxInputTokens) return { ...compacted, inputTokens, maxInputTokens,
       tokenizer: measured === null ? 'estimate' : 'provider' };
     if (limitChars <= 2048) break;

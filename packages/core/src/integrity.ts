@@ -7,6 +7,8 @@ export function canonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   return '{' + Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0).map(([key, item]) => JSON.stringify(key) + ':' + canonical(item)).join(',') + '}';
 }
+/** Conservative planning estimate for when no provider tokenizer measurement is available. */
+export const tokenEstimate = (value: unknown): number => Math.ceil(Buffer.byteLength(JSON.stringify(value), 'utf8') / 3) + 64;
 export const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
 export const sourceDigest = (messages: Message[]): string => sha256(canonical(messages));
 export function checkpointDigest(checkpoint: Omit<Checkpoint, 'checkpoint_sha256'> | Checkpoint): string {
