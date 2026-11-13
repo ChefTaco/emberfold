@@ -234,7 +234,9 @@ export async function fitContext(value: unknown, adapters: Adapters = {}): Promi
     measured = await count(build(), request.tools, adapters, request.require_measured_tokens);
   }
   if (measured.value > request.max_input_tokens) {
-    for (const block of blocks) for (let offset = 0; offset < block.messages.length; offset++) {
+    shorten: for (const block of blocks) for (let offset = 0; offset < block.messages.length; offset++) {
+      // Shorten only as many results as the budget needs; later results stay intact once the prompt fits.
+      if (measured.value <= request.max_input_tokens) break shorten;
       const message = block.messages[offset]!;
       const index = block.indices[offset]!;
       if (message.role !== 'tool' || protectedIndices.has(index) || !message.content || message.content.length < 512) continue;
