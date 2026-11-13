@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Server } from 'node:http';
-import { request as httpRequest } from 'node:http';
+import { createServer, request as httpRequest, type Server } from 'node:http';
 import { once } from 'node:events';
 import { createEmberfoldServer } from '../packages/server/src/index.js';
 import { fixture } from './fixtures.js';
@@ -45,6 +44,27 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: 'x'.repeat(65) })).status).toBe(413);
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' })).status).toBe(400);
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: '{}' })).status).toBe(415);
+  });
+  it('attributes provider and model-output failures to the provider, not the caller request', async () => {
+    const replies = ['<html>proxy sign-in</html>', JSON.stringify({ choices: [{ message: { content: 'not a summary' } }] })];
+    const provider = createServer((request, response) => { request.resume(); response.setHeader('Content-Type', 'application/json'); response.end(replies[request.url?.startsWith('/page') ? 0 : 1]); });
+    servers.push(provider);
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    const address = provider.address();
+    if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
+    const unused = createServer();
+    await new Promise<void>(resolve => unused.listen(0, '127.0.0.1', resolve));
+    const closed = unused.address();
+    if (!closed || typeof closed === 'string') throw new Error('Fixture listener unavailable');
+    await new Promise<void>(resolve => unused.close(() => resolve()));
+    const { url } = await serve({ providers: [
+      { type: 'http', id: 'page', base_url: `http://127.0.0.1:${address.port}/page`, model: 'fixture' },
+      { type: 'http', id: 'prose', base_url: `http://127.0.0.1:${address.port}/prose`, model: 'fixture' },
+      { type: 'http', id: 'down', base_url: `http://127.0.0.1:${closed.port}/v1`, model: 'fixture' }] });
+    for (const [provider_id, error] of [['page', 'PROVIDER_FAILED'], ['prose', 'INVALID_SUMMARY'], ['down', 'PROVIDER_FAILED']]) {
+      const response = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), provider_id }) });
+      expect([provider_id, response.status, await response.json()]).toEqual([provider_id, 422, { error }]);
+    }
   });
   it('fails startup for missing or weak authentication and invalid provider configuration', () => {
     expect(() => createEmberfoldServer({}, {})).toThrow('bearer token');

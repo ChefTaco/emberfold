@@ -85,7 +85,7 @@ emberfold serve --config service.json
 JSON goes to stdout; diagnostics go to stderr. `--output` creates a new owner-only
 file and never overwrites existing content. Dry runs make no model calls and do
 not write output files. Exit codes: 0 success, 2 invalid input, 3 budget exhaustion,
-4 provider/tokenizer unavailable.
+4 provider/tokenizer unavailable or deadline exceeded.
 
 HTTP exposes `POST /v1/prepare`, `/v1/checkpoints/validate`, and
 `/v1/checkpoints/rebuild`, plus metadata-only `/healthz` and `/readyz`.

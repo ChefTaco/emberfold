@@ -67,7 +67,8 @@ async function main(): Promise<void> {
   else process.stdout.write(output);
 }
 void main().catch((error: unknown) => {
-  const code = error instanceof Error ? /^[A-Z_]+(?=:|$)/.exec(error.message)?.[0] ?? 'INVALID_INPUT' : 'INVALID_INPUT';
+  // The only deadline is the configured one around model work; expiry is not an input fault.
+  const code = error instanceof Error ? error.name === 'TimeoutError' ? 'DEADLINE_EXCEEDED' : /^[A-Z_]+(?=:|$)/.exec(error.message)?.[0] ?? 'INVALID_INPUT' : 'INVALID_INPUT';
   process.stderr.write(JSON.stringify({ error: code }) + '\n');
-  process.exitCode = code.startsWith('CONTEXT_BUDGET') ? 3 : code.includes('UNAVAILABLE') || code.includes('PROVIDER') || code.includes('CODEX') ? 4 : 2;
+  process.exitCode = code.startsWith('CONTEXT_BUDGET') ? 3 : code.includes('UNAVAILABLE') || code.includes('PROVIDER') || code.includes('CODEX') || code === 'DEADLINE_EXCEEDED' ? 4 : 2;
 });

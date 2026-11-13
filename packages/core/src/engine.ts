@@ -104,7 +104,9 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
         pending = [];
         return;
       } catch (error: unknown) {
-        if (attempt === 1) throw error;
+        // Unparseable or schema-invalid model output is a summary failure, never a malformed caller request.
+        if (attempt === 1) throw error instanceof SyntaxError || error instanceof z.ZodError
+          ? new Error('INVALID_SUMMARY: summarizer output is not a valid summary', { cause: error }) : error;
         inputPrompt = JSON.stringify({ ...JSON.parse(basePrompt) as object,
           validation_error: error instanceof Error ? error.message.slice(0, 1000) : 'Invalid summary',
           repair_instruction: 'Correct the rejected candidate. Retained prior item IDs require identical complete item bodies; changed facts require new IDs. Preserve supported corrections and unfinished work. Return only valid JSON.',

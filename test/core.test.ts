@@ -94,6 +94,11 @@ describe('portable context continuity', () => {
     expect(calls).toBe(2);
     expect(result.compacted).toBe(true);
   });
+  it('reports model output that stays unparseable or schema-invalid as an invalid summary', async () => {
+    const request = fixture();
+    await expect(prepareContext(request, { summarizer: { ...deterministicSummarizer, summarize: async () => '<html>upstream error</html>' } })).rejects.toThrow(/^INVALID_SUMMARY: /);
+    await expect(prepareContext(request, { summarizer: { ...deterministicSummarizer, summarize: async () => '{"items":[]}' } })).rejects.toThrow(/^INVALID_SUMMARY: /);
+  });
   it('validates supersession and resolution without rewriting existing identities', () => {
     const old = { id: 'weekly', kind: 'decision' as const, text: 'Weekly', source_message_ids: ['one'], historical_status: 'historical_unverified' as const,
       epistemic_status: 'decision' as const, supersedes: [], resolves: [] };

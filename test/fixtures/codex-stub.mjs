@@ -6,6 +6,7 @@ createInterface({ input: process.stdin }).on('line', line => {
   if (message.id === undefined) return;
   if (process.env.EMBERFOLD_FIXTURE_HANG) return;
   if (process.env.EMBERFOLD_FIXTURE_FAIL) { send({ id: message.id, error: { message: 'fixture failure' } }); return; }
+  if (process.env.EMBERFOLD_FIXTURE_MALFORMED && message.method === 'account/read') { send({ id: message.id, result: {} }); return; }
   const activeMcp = process.env.EMBERFOLD_FIXTURE_MCP && !process.argv.some(argument => argument === 'mcp_servers.fixture.enabled=false');
   const results = { initialize: {}, 'account/read': { account: { type: 'chatgpt' } }, 'config/read': { config: { mcp_servers: activeMcp ? { fixture: { enabled: true } } : {} } },
     'thread/start': { thread: { id: 'fixture-thread' } }, 'turn/start': { turn: { id: 'fixture-turn' } } };
