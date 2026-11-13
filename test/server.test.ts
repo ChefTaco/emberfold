@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { once } from 'node:events';
+import { connect } from 'node:net';
 import { createEmberfoldServer } from '../packages/server/src/index.js';
 import { fixture } from './fixtures.js';
 
@@ -44,6 +45,42 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: 'x'.repeat(65) })).status).toBe(413);
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' })).status).toBe(400);
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: '{}' })).status).toBe(415);
+  });
+  it('answers an oversized upload that is still in flight and keeps the connection usable', async () => {
+    const { url, logs } = await serve({ max_body_bytes: 1024 });
+    const socket = connect(Number(new URL(url).port), '127.0.0.1');
+    try {
+      let received = '';
+      socket.on('data', chunk => { received += String(chunk); });
+      const failed = new Promise<never>((_resolve, reject) => { socket.on('error', reject); socket.on('close', () => reject(new Error('Connection closed'))); });
+      const head = (length: number) => `POST /v1/prepare HTTP/1.1\r\nHost: service.example.com\r\nContent-Type: application/json\r\nAuthorization: Bearer ${token}\r\nContent-Length: ${length}\r\n\r\n`;
+      const statuses = async (count: number) => {
+        while (received.split('HTTP/1.1 ').length <= count) await Promise.race([once(socket, 'data'), failed]);
+        return received.split('HTTP/1.1 ').slice(1).map(response => response.slice(0, 3));
+      };
+      socket.write(head(96 * 65536));
+      for (let sent = 0; sent < 96; sent++) if (!socket.write(Buffer.alloc(65536, 120))) await Promise.race([once(socket, 'drain'), failed]);
+      expect(await statuses(1)).toEqual(['413']);
+      socket.write(head(1) + '{');
+      expect(await statuses(2)).toEqual(['413', '400']);
+    } finally { socket.destroy(); }
+    for (let attempt = 0; attempt < 4; attempt++)
+      expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: 'x'.repeat(200000) })).status).toBe(413);
+    expect(logs.map(record => record.status)).toEqual([413, 400, 413, 413, 413, 413]);
+  });
+  it('closes an oversized upload that stalls and frees its capacity', async () => {
+    const { url, logs } = await serve({ max_body_bytes: 1024, concurrency: 1, timeout_ms: 200 });
+    const socket = connect(Number(new URL(url).port), '127.0.0.1');
+    try {
+      let received = '';
+      socket.on('data', chunk => { received += String(chunk); });
+      socket.on('error', () => {});
+      socket.write(`POST /v1/prepare HTTP/1.1\r\nHost: service.example.com\r\nContent-Type: application/json\r\nAuthorization: Bearer ${token}\r\nContent-Length: 1000000\r\n\r\n` + 'x'.repeat(2048));
+      await once(socket, 'close');
+      expect(received.slice(0, 12)).toBe('HTTP/1.1 413');
+    } finally { socket.destroy(); }
+    expect(logs.map(record => record.status)).toEqual([413]);
+    expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' })).status).toBe(400);
   });
   it('attributes provider and model-output failures to the provider, not the caller request', async () => {
     const replies = ['<html>proxy sign-in</html>', JSON.stringify({ choices: [{ message: { content: 'not a summary' } }] })];
