@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.4.0] - 2026-11-13
+
 ### Fixed
 
 - HTTP provider and tokenizer failures now carry stable codes. An unreachable provider, a provider timeout, or a non-JSON or malformed provider response is reported as `PROVIDER_FAILED` (`TOKENIZER_UNAVAILABLE` for token counting) instead of an uncoded error. The service previously answered these with `400` or `422` `INVALID_REQUEST`, and the CLI exited 2 as if the input were invalid; the service now answers `422` with the provider code and the CLI exits 4. Caller cancellation is passed through unchanged.
