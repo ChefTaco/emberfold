@@ -1,6 +1,21 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { publishedIntegrity } from '../scripts/registry.mjs';
 
+describe('release version', () => {
+  it('is the same in every manifest and every version reported at runtime', async () => {
+    const read = (path: string) => readFile(new URL('../' + path, import.meta.url), 'utf8');
+    const { version } = JSON.parse(await read('package.json')) as { version: string };
+    for (const name of ['core', 'server', 'cli']) {
+      const manifest = JSON.parse(await read(`packages/${name}/package.json`)) as { version: string; dependencies?: Record<string, string> };
+      expect([name, manifest.version]).toEqual([name, version]);
+      for (const [dependency, range] of Object.entries(manifest.dependencies ?? {})) if (dependency.startsWith('@hivemagnus/emberfold')) expect([name, dependency, range]).toEqual([name, dependency, version]);
+    }
+    expect(await read('packages/cli/src/index.ts')).toContain(`process.stdout.write('${version}\\n')`);
+    expect(await read('packages/server/src/index.ts')).toContain(`{ status: 'ok', version: '${version}' }`);
+    expect(await read('packages/core/src/adapters.ts')).toContain(`title: 'Emberfold', version: '${version}'`);
+  });
+});
 describe('registry publication verification', () => {
   it('waits for accepted publications to become visible without repeating publication', async () => {
     let reads = 0;
