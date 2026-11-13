@@ -22,7 +22,7 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
   };
   const handler = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (request.headers.origin) { send(response, 403, { error: 'ORIGIN_REJECTED' }); return; }
-    if (request.method === 'GET' && request.url === '/healthz') { send(response, 200, { status: 'ok', version: '0.3.0' }); return; }
+    if (request.method === 'GET' && request.url === '/healthz') { send(response, 200, { status: 'ok', version: '0.4.0' }); return; }
     if (request.method === 'GET' && request.url === '/readyz') { send(response, closing ? 503 : 200, { ready: !closing, providers_configured: providers.size }); return; }
     const supplied = sha256(request.headers.authorization ?? '');
     const expected = sha256(`Bearer ${token}`);

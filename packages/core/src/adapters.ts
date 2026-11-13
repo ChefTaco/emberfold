@@ -114,7 +114,7 @@ export function createCodexSummarizer(config: { id: string; command: string; mod
       }
     });
     try {
-      await request('initialize', { clientInfo: { name: 'emberfold', title: 'Emberfold', version: '0.3.0' }, capabilities: { experimentalApi: true } });
+      await request('initialize', { clientInfo: { name: 'emberfold', title: 'Emberfold', version: '0.4.0' }, capabilities: { experimentalApi: true } });
       send({ method: 'initialized', params: {} });
       const account = shape(z.object({ account: z.object({ type: z.string() }).nullable() }), await request('account/read', { refreshToken: false }));
       if (account.account?.type !== (config.auth_mode ?? 'chatgpt')) throw new Error('CODEX_LOGIN_REQUIRED');

@@ -9,7 +9,7 @@ async function main(): Promise<void> {
     input: { type: 'string' }, output: { type: 'string' }, config: { type: 'string' },
     'dry-run': { type: 'boolean', default: false }, help: { type: 'boolean', default: false }, version: { type: 'boolean', default: false }
   } });
-  if (values.version) { process.stdout.write('0.3.0\n'); return; }
+  if (values.version) { process.stdout.write('0.4.0\n'); return; }
   if (values.help) { process.stdout.write('emberfold prepare|inspect|rebuild|recall --input FILE|- [--output FILE] [--config FILE] [--dry-run]\nemberfold serve --config FILE\n'); return; }
   const command = positionals[0];
   if (positionals.length !== 1 || !['prepare', 'inspect', 'rebuild', 'recall', 'serve'].includes(command ?? '')) throw new Error('INVALID_INPUT: use --help');
