@@ -5,8 +5,8 @@
 Ardent, the engine's consumer, now lives in its own repository,
 [ChefTaco/Ardent](https://github.com/ChefTaco/Ardent); it was previously
 `packages/ardent` in the Magnus monorepo. Ardent 2.1.1 (`90ec90594a15ad412e1385dc6cb9972f15eec66a`, the
-repository's extraction commit) still declares `@hivemagnus/emberfold` exactly
-`0.1.0`. Before the move, Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`)
+repository's extraction commit) declares `@hivemagnus/emberfold` exactly
+`0.1.0`, and the current release, Ardent 3.1.3, still does. Before the move, Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`)
 was the reviewed consumer with the same declaration. Its context fitting, checkpoint storage
 adapter, policy pinning, and additive SQLite metadata retain the original engine
 contract. Managed context-only adoption now preserves extended legacy runtimes
