@@ -50,8 +50,10 @@ Create a dedicated client key per caller so Emberpath attributes its traffic.
 Emberpath attributes requests whose key metadata carries `actorId`:
 
 ```bash
-hive-router create-key --name "emberfold" --metadata '{"actorId":"emberfold","service":"emberfold"}'
+emberpath create-key --name "emberfold" --metadata '{"actorId":"emberfold","service":"emberfold"}'
 ```
+
+(`hive-router create-key` is the same Emberpath command under its older name.)
 
 Use the actor ID the rest of the suite knows this caller by (for an agent, its
 agent ID). The plaintext key is printed once; store it only in the variable named
@@ -64,7 +66,8 @@ container port is bound to loopback. Health probes reveal no prompts or secrets.
 Default limits: 16 MiB request body, two concurrent requests, 120-second deadline.
 
 `npm run deploy -- preflight` reads the ignored root `.env` using
-`DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_PASSWORD`. Passwords travel on
+`DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_PASSWORD`; optional `DEPLOY_PORT` and
+`DEPLOY_TLS_PORT` (defaults `8096` and `8097`) set the service and TLS ports. Passwords travel on
 dedicated file descriptors/stdin, never as process arguments or diagnostic output.
 `deploy`, `status`, `restart`, and `rollback` operate on an immutable image digest.
 Set optional `DEPLOY_DNS` to a trusted resolver IP when container networking needs
@@ -84,11 +87,9 @@ Check [Ardent and Magnus compatibility and managed ownership](MAGNUS.md) before 
 Ardent rollout after a control-plane upgrade. A healthy service or successful
 node-manager upgrade is not per-profile acceptance.
 
-Initial npm publication may use the maintainer's existing protected bootstrap
-workflow in the upstream repository, pinned to an exact Emberfold commit. Its
-credential is exposed only to publication. Cross-repository bootstrap omits
-provenance rather than attesting the wrong source repository. Subsequent releases
-use Emberfold's own workflow and trusted publishing after publisher setup.
+Releases use Emberfold's own `Publish` workflow: a `v*` tag runs `npm run verify`,
+publishes the three npm packages through trusted publishing with provenance, then
+builds and attests the service image.
 
 Registry acceptance is not installation proof: npm scans newly published packages
 before serving them. The release script submits each artifact once, then polls
