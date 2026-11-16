@@ -18,6 +18,23 @@ Ardent imports the library directly. The service is optional and holds no
 authoritative transcript or checkpoint head. Hosts publish candidates with
 transactional source, policy, and head checks.
 
+Emberfold is one product in the [Hive:Magnus](https://github.com/ChefTaco/hive) suite. The
+suite's `full` profile runs the service image; the library and CLI work on their own.
+
+## Install
+
+The three packages are published on npm at the same version (currently `0.4.0`):
+
+```bash
+npm install @hivemagnus/emberfold            # library
+npm install -g @hivemagnus/emberfold-cli     # the emberfold command
+```
+
+The service image is `ghcr.io/cheftaco/emberfold` (linux/amd64 and linux/arm64, exact
+version tags). It listens on port 8096, reads `/config/service.json` and answers `/healthz`.
+With the suite, `hive.sh` installs and configures it; on its own, see
+[operations](docs/OPERATIONS.md#optional-http-service) for the configuration file.
+
 ```typescript
 import { prepareContext } from '@hivemagnus/emberfold';
 
@@ -101,6 +118,10 @@ npm ci --ignore-scripts
 npm ci --ignore-scripts --prefix integrations/emberfold-hermes
 npm run verify
 ```
+
+`npm run verify` is the full gate CI runs: build, typecheck, lint, tests, Hermes plugin
+tests, contracts, privacy, packaged installs and the synthetic evaluation. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 Contract generation is `npm run contracts:write`.
 All checked-in examples and test data are synthetic.
