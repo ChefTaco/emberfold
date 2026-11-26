@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "engines": { "node": "^24.22.3 || ^26.13.1" },
   "dependencies": {
-    "@hivemagnus/emberfold": "0.1.0",
+    "@hivemagnus/emberfold": "0.4.0",
     "zod": "4.6.7"
   }
 }

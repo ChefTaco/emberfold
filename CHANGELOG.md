@@ -12,6 +12,8 @@
 - `fitContext` no longer splits a surrogate pair when it shortens a tool result.
 - With a provider tokenizer, identical input is measured once per operation, and candidate prompts that the local estimate (scaled by the last measured ratio) puts more than 25% over budget are rejected without a provider call. A fit is still always decided by a measurement. This removes most tokenizer round trips while halving summarizer chunks and shortening tool results.
 - `npm test` builds the workspace first, so a stale `dist/` no longer makes local test runs fail.
+- The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
+- The Ardent compatibility gate in CI now checks Ardent 3.3.0, the shipping consumer, instead of the 2.1.1 extraction commit, and keeps every `@types/*` package Ardent declares so its full typecheck runs.
 
 ## [0.4.0] - 2026-11-13
 

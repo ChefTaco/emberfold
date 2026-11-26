@@ -4,10 +4,16 @@
 
 Ardent, the engine's consumer, now lives in its own repository,
 [ChefTaco/Ardent](https://github.com/ChefTaco/Ardent); it was previously
-`packages/ardent` in the Magnus monorepo. Ardent 2.1.1 (`90ec90594a15ad412e1385dc6cb9972f15eec66a`, the
-repository's extraction commit) declares `@hivemagnus/emberfold` exactly
-`0.1.0`, and the current release, Ardent 3.1.3, still does. Before the move, Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`)
-was the reviewed consumer with the same declaration. Its context fitting, checkpoint storage
+`packages/ardent` in the Magnus monorepo. The reviewed consumer is Ardent 3.3.0
+(tag `v3.3.0`, commit `1096817e9c3c0ce5060d5942c40409eb5f57097b`), which declares
+`@hivemagnus/emberfold` exactly `0.1.0`. Ardent imports only the checkpoint schema,
+digest, source resolution and validation from the root entry and the `compat`
+exports; the gate below runs its context and checkpoint tests against the current
+engine (0.4.0) and they pass, so moving Ardent's exact pin to 0.4.0 is a low-risk
+change for Ardent's own release. Earlier reviewed consumers were Ardent 2.1.1
+(`90ec90594a15ad412e1385dc6cb9972f15eec66a`, the repository's extraction commit) and,
+before the move, Magnus 1.1.12 (`1f2473112771abdbc1d5288188abfe681c045142`), both
+with the same `0.1.0` declaration. Ardent's context fitting, checkpoint storage
 adapter, policy pinning, and additive SQLite metadata retain the original engine
 contract. Managed context-only adoption now preserves extended legacy runtimes
 without requiring a wholesale public Ardent installation. Enrollment, A2A
@@ -33,10 +39,10 @@ pass, with no skipped cases. A private receipt goes under `output/compatibility/
 The command executes source/tests from the selected repository: use only a trusted
 checkout and revision. It does not fetch or update the checkout for you.
 
-CI runs the gate on both supported Node lines against the reviewed Ardent commit
-above. When Ardent changes, review its adapter, policy, store, model-request
-rendering, and context tests before updating that pin; prefer a release tag once
-one exists. For a new engine release, verify the
+CI runs the gate on both supported Node lines against the reviewed Ardent release
+commit above. When Ardent releases, review its adapter, policy, store,
+model-request rendering, and context tests before moving that pin to the new
+release tag's commit. For a new engine release, verify the
 candidate before changing Ardent's exact dependency. Do not republish `0.1.0` or
 move an existing tag to incorporate tooling changes.
 
