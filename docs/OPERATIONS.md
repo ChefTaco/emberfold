@@ -64,7 +64,23 @@ agent ID). The plaintext key is printed once; store it only in the variable name
 by `api_key_env`. Keys enrolled through Emberpath's actor credential flow already
 carry `actorId`.
 
-Use a high-entropy bearer token of at least 32 characters. Only configured provider
+Use a high-entropy bearer token of at least 32 characters. The service can also
+accept Oathweave client-credentials tokens, so each caller has its own identity:
+
+```json
+"oathweave": {
+  "issuer": "https://identity.example.com", "native_issuers": ["hive-iam"],
+  "jwks_url": "https://identity.example.com/.well-known/jwks.json",
+  "audience": "emberfold", "scope": "emberfold:context"
+}
+```
+
+A token is accepted only when it is an RS256 service token for exactly that
+`audience`, from a listed issuer, and carries `scope` in its `scope` claim or its
+`permissions`. A valid token without it gets `403 FORBIDDEN`; key discovery that
+fails gets a retryable `503 AUTH_UNAVAILABLE`. User tokens are refused. The static
+bearer keeps working, and request logs record the caller (`static`, or the service
+subject and client ID). `issuer` and `jwks_url` must use HTTPS. Only configured provider
 IDs are accepted. Remote access requires a TLS reverse proxy; the host-side
 container port is bound to loopback. Health probes reveal no prompts or secrets.
 Default limits: 16 MiB request body, two concurrent requests, 120-second deadline.

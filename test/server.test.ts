@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { once } from 'node:events';
+import { createSign, generateKeyPairSync, randomUUID } from 'node:crypto';
 import { connect } from 'node:net';
 import { encodeExecutionHeader } from '@hivemagnus/hive-common/execution';
 import { createEmberfoldServer } from '../packages/server/src/index.js';
@@ -138,7 +139,8 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect(generated.headers.get('x-request-id')).toMatch(/.+/);
     await vi.waitFor(() => expect(logs).toHaveLength(2));
     expect(logs[0]).toEqual({ event: 'request', operation: '/v1/prepare', status: 200, duration_ms: expect.any(Number), request_id: 'synthetic-request-1',
-      trace_id: expect.stringMatching(/^[0-9a-f]{32}$/), execution: { root: 'hx1:ardent:example-node.default:task:synthetic-task', self: 'hx1:ardent:example-node.default:step:synthetic-task/1' } });
+      trace_id: expect.stringMatching(/^[0-9a-f]{32}$/), execution: { root: 'hx1:ardent:example-node.default:task:synthetic-task', self: 'hx1:ardent:example-node.default:step:synthetic-task/1' },
+      caller: { kind: 'static' } });
     expect(logs[1]).toMatchObject({ status: 400, error: 'INVALID_REQUEST', request_id: generated.headers.get('x-request-id') });
     expect(JSON.stringify(logs)).not.toContain('secret=query');
   });
@@ -183,6 +185,58 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect(await response.json()).toMatchObject({ compacted: true });
     const text = await (await fetch(url + '/metrics', { headers: { Authorization: `Bearer ${token}` } })).text();
     expect(text).toContain('emberfold_compactions_total{operation="/v1/prepare"} 1');
+  });
+  it('accepts Oathweave service tokens for its audience and scope alongside the static bearer', async () => {
+    const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const jwks = { keys: [{ ...publicKey.export({ format: 'jwk' }), kid: 'synthetic-key', alg: 'RS256', use: 'sig' }] };
+    let jwksAvailable = true;
+    const fetchJwks = (async (input: string | URL | Request) => {
+      if (String(input instanceof Request ? input.url : input) !== 'https://identity.example.com/jwks' || !jwksAvailable) return new Response('unavailable', { status: 503 });
+      return Response.json(jwks);
+    }) as typeof fetch;
+    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+    const sign = (claims: Record<string, unknown>) => {
+      const now = Math.floor(Date.now() / 1000);
+      const body = `${encode({ alg: 'RS256', kid: 'synthetic-key', typ: 'JWT' })}.${encode({ iss: 'https://identity.example.com', aud: 'emberfold', sub: 'ardent-example',
+        client_id: 'ardent-example', jti: randomUUID(), iat: now, exp: now + 300, actorType: 'SERVICE_ACCOUNT', token_type: 'access', permissions: ['emberfold:context'], roles: [], ...claims })}`;
+      return `${body}.${createSign('RSA-SHA256').update(body).sign(privateKey).toString('base64url')}`;
+    };
+    const logs: Record<string, unknown>[] = [];
+    const server = createEmberfoldServer({ oathweave: { issuer: 'https://identity.example.com', jwks_url: 'https://identity.example.com/jwks' } },
+      { EMBERFOLD_API_TOKEN: token }, record => logs.push(record), { fetch: fetchJwks });
+    servers.push(server);
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
+    const url = `http://127.0.0.1:${address.port}`;
+    const call = (authorization: string) => fetch(url + '/v1/prepare', { method: 'POST', body: JSON.stringify({ ...fixture(), dry_run: true }),
+      headers: { 'Content-Type': 'application/json', Authorization: authorization } });
+    expect((await call(`Bearer ${sign({})}`)).status).toBe(200);
+    await vi.waitFor(() => expect(logs.at(-1)).toMatchObject({ status: 200, caller: { kind: 'service', subject: 'ardent-example', client_id: 'ardent-example' } }));
+    expect((await call(`Bearer ${sign({ permissions: [], scope: 'emberfold:context' })}`)).status).toBe(200);
+    expect((await call(`Bearer ${token}`)).status).toBe(200);
+    await vi.waitFor(() => expect(logs).toHaveLength(3));
+    expect(logs.at(-1)).toMatchObject({ caller: { kind: 'static' } });
+    const missingScope = await call(`Bearer ${sign({ permissions: ['memory:read'] })}`);
+    expect([missingScope.status, await missingScope.json()]).toEqual([403, { error: 'FORBIDDEN' }]);
+    for (const claims of [{ aud: 'hivemem' }, { iss: 'https://other.example.com' }, { exp: Math.floor(Date.now() / 1000) - 120 }, { sub: 'person', client_id: 'browser' }, { actorType: 'USER' }])
+      expect([claims, (await call(`Bearer ${sign(claims)}`)).status]).toEqual([claims, 401]);
+    expect((await call(`Bearer ${sign({}).slice(0, -4)}AAAA`)).status).toBe(401);
+    expect((await call('Bearer not-a-jwt')).status).toBe(401);
+    // Key discovery that fails is a retryable 503, never acceptance (a fresh server has no cached keys).
+    jwksAvailable = false;
+    const cold = createEmberfoldServer({ oathweave: { issuer: 'https://identity.example.com', jwks_url: 'https://identity.example.com/jwks' } },
+      { EMBERFOLD_API_TOKEN: token }, () => {}, { fetch: fetchJwks });
+    servers.push(cold);
+    await new Promise<void>(resolve => cold.listen(0, '127.0.0.1', resolve));
+    const coldAddress = cold.address();
+    if (!coldAddress || typeof coldAddress === 'string') throw new Error('Fixture listener unavailable');
+    const unavailable = await fetch(`http://127.0.0.1:${coldAddress.port}/v1/prepare`, { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sign({})}` } });
+    expect([unavailable.status, await unavailable.json()]).toEqual([503, { error: 'AUTH_UNAVAILABLE' }]);
+  });
+  it('rejects Oathweave settings that would send keys or accept issuers over plain HTTP', () => {
+    expect(() => createEmberfoldServer({ oathweave: { issuer: 'https://identity.example.com', jwks_url: 'http://identity.example.com/jwks' } }, { EMBERFOLD_API_TOKEN: token })).toThrow('https');
+    expect(() => createEmberfoldServer({ oathweave: { issuer: 'http://identity.example.com', jwks_url: 'https://identity.example.com/jwks' } }, { EMBERFOLD_API_TOKEN: token })).toThrow('https');
   });
   it('fails startup for missing or weak authentication and invalid provider configuration', () => {
     expect(() => createEmberfoldServer({}, {})).toThrow('bearer token');

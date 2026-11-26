@@ -9,6 +9,7 @@
 
 ### Added
 
+- The HTTP service can accept Oathweave client-credentials tokens alongside the static bearer (new optional `oathweave` configuration: issuer, optional native issuers, JWKS URL, audience `emberfold` and scope `emberfold:context` by default). Tokens must be service tokens for that exact audience and carry the scope in `scope` or `permissions`; request logs record which caller was authenticated. Without `oathweave`, authentication is unchanged.
 - `POST /v1/recall` on the HTTP service returns original messages by ID, like the CLI's `recall`.
 - Authenticated Prometheus `GET /metrics`: requests by operation and status, request duration, compactions, provider failures by code, requests in flight and readiness.
 - The service uses `@hivemagnus/hive-common` 0.7.0: suite health paths `/health/live` and `/health/ready`, `X-Request-Id` on every response (the caller's when valid), and structured JSON request logs with request and trace IDs, the error code and `x-hive-execution` attribution.
@@ -25,9 +26,6 @@
 ### Changed
 
 - Request log lines now come from HiveCommon's logger (`time`, `level`, `msg`, `service` fields added, secrets redacted) and carry `request_id`, `trace_id` and, on failure, `error`. A custom `log` sink passed to `createEmberfoldServer` receives the same record fields as before plus these. The `/healthz` and `/readyz` bodies are unchanged.
-
-### Changed
-
 - Summarizer excerpts now carry the message `role`, and on a message's first excerpt its `tool_call_id` and a bounded rendering of its `tool_calls` (at most 16 calls, each with its ID, function name and arguments cut to 512 characters; `tool_calls_omitted` counts the rest). Previously the summarizer saw only message text, so it could not tell user, assistant and tool text apart, and the calls an assistant made were dropped. When a message's calls cannot fit the summarizer input budget, only the call IDs and names are kept. The evaluation adds a tool-call scenario whose answer exists only in a tool call. Custom summarizers that parse the prompt see the new optional fields; existing fields are unchanged.
 
 ## [0.4.0] - 2026-11-13
