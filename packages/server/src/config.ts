@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { createCodexSummarizer, createHttpSummarizer } from '@hivemagnus/emberfold/adapters';
+import { createCodexSummarizer, createHttpSummarizer, isLoopbackHost } from '@hivemagnus/emberfold/adapters';
 import type { Adapters, Summarizer } from '@hivemagnus/emberfold';
 
 const HttpProvider = z.object({ type: z.literal('http'), id: z.string().min(1), base_url: z.string().url(), model: z.string().min(1),
@@ -18,14 +18,13 @@ export const ServiceConfigSchema = z.object({ providers: z.array(z.discriminated
   timeout_ms: z.number().int().positive().default(120000) }).strict();
 export type ServiceConfig = z.infer<typeof ServiceConfigSchema>;
 type EmberpathProviderConfig = z.infer<typeof EmberpathProvider>;
-const Loopback = new Set(['localhost', '127.0.0.1', '[::1]']);
 /** Resolves an `emberpath` provider into the shared OpenAI-compatible `http` configuration at `<emberpath>/v1`. */
 export function emberpathHttpConfig(provider: EmberpathProviderConfig, env: NodeJS.ProcessEnv = process.env) {
   const configured = provider.base_url ?? env[provider.base_url_env];
   if (!configured) throw new Error('PROVIDER_UNCONFIGURED: Emberpath URL is missing');
   let url: URL;
   try { url = new URL(configured); } catch { throw new Error('Invalid provider URL'); }
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && Loopback.has(url.hostname))) throw new Error('Invalid provider URL: Emberpath requires HTTPS');
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopbackHost(url.hostname))) throw new Error('Invalid provider URL: Emberpath requires HTTPS');
   const path = url.pathname.replace(/\/+$/, '');
   url.pathname = path.endsWith('/v1') ? path : `${path}/v1`;
   return { id: provider.id, base_url: url.href, model: provider.model, api_key_env: provider.api_key_env,

@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createHttpSummarizer, createCodexSummarizer } from '../packages/core/src/adapters.js';
+import { codexEnvironment, createHttpSummarizer, createCodexSummarizer } from '../packages/core/src/adapters.js';
 
 const servers: Server[] = [];
 afterEach(async () => { for (const server of servers.splice(0)) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); } });
@@ -61,17 +61,39 @@ describe('optional summarizers', () => {
     expect(() => createHttpSummarizer({ id: 'fixture', base_url: 'https://example.com/v1', model: 'fixture', api_key_env: 'ABSENT_FIXTURE_KEY' }, {})).toThrow('credential');
     expect(() => createHttpSummarizer({ id: 'fixture', base_url: 'https://alice:synthetic@example.com', model: 'fixture' })).toThrow('URL');
   });
+  it('sends a credential over plain HTTP only to a loopback host', () => {
+    const env = { FIXTURE_KEY: 'synthetic' };
+    for (const base_url of ['http://model.example.com:8000/v1', 'http://10.0.0.5:8000/v1', 'http://[fd00::1]:8000/v1', 'http://localhost.example.com/v1'])
+      expect(() => createHttpSummarizer({ id: 'fixture', base_url, model: 'fixture', api_key_env: 'FIXTURE_KEY' }, env)).toThrow('requires HTTPS');
+    for (const base_url of ['https://model.example.com/v1', 'http://localhost:8000/v1', 'http://127.0.0.1:8000/v1', 'http://127.1.2.3/v1', 'http://[::1]:8000/v1'])
+      expect(createHttpSummarizer({ id: 'fixture', base_url, model: 'fixture', api_key_env: 'FIXTURE_KEY' }, env).id).toBe('fixture');
+    // Without a credential, plain HTTP to any host stays allowed.
+    expect(createHttpSummarizer({ id: 'fixture', base_url: 'http://model.example.com:8000/v1', model: 'fixture' }, {}).id).toBe('fixture');
+  });
+  it('gives the Codex child process only an allowlisted environment', async () => {
+    const command = new URL('./fixtures/codex-stub.mjs', import.meta.url).pathname;
+    const env = { PATH: process.env.PATH, HOME: '/synthetic/home', CODEX_HOME: '/synthetic/codex', CODEX_FIXTURE_ENV: '1', LANG: 'C.UTF-8',
+      EMBERFOLD_API_TOKEN: 'synthetic-service-token', LOCAL_MODEL_TOKEN: 'synthetic-provider-key', EMBERPATH_API_KEY: 'synthetic-client-key',
+      OPENAI_API_KEY: 'synthetic-openai-key', AWS_SECRET_ACCESS_KEY: 'synthetic-aws' };
+    const chatgpt = JSON.parse(await createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 5000 }, env)
+      .summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })) as string[];
+    expect(chatgpt).toEqual(expect.arrayContaining(['CODEX_FIXTURE_ENV', 'CODEX_HOME', 'HOME', 'LANG', 'PATH']));
+    for (const leaked of ['EMBERFOLD_API_TOKEN', 'LOCAL_MODEL_TOKEN', 'EMBERPATH_API_KEY', 'OPENAI_API_KEY', 'AWS_SECRET_ACCESS_KEY']) expect(chatgpt).not.toContain(leaked);
+    expect(codexEnvironment(env, 'apiKey')).toMatchObject({ OPENAI_API_KEY: 'synthetic-openai-key' });
+    expect(codexEnvironment(env, 'apiKey')).not.toHaveProperty('EMBERFOLD_API_TOKEN');
+    expect(codexEnvironment(env)).not.toHaveProperty('OPENAI_API_KEY');
+  });
   it('supports a tools-disabled Codex protocol with cancellation and provider errors', async () => {
     const command = new URL('./fixtures/codex-stub.mjs', import.meta.url).pathname;
-    const inheritedMcp = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 5000 }, { ...process.env, EMBERFOLD_FIXTURE_MCP: '1' });
+    const inheritedMcp = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 5000 }, { ...process.env, CODEX_FIXTURE_MCP: '1' });
     expect(await inheritedMcp.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).toBe('{"items":[]}');
     const adapter = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 5000 });
     expect(await adapter.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).toBe('{"items":[]}');
-    const broken = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, EMBERFOLD_FIXTURE_FAIL: '1' });
+    const broken = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, CODEX_FIXTURE_FAIL: '1' });
     await expect(broken.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CODEX_REQUEST');
-    const malformed = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, EMBERFOLD_FIXTURE_MALFORMED: '1' });
+    const malformed = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd() }, { ...process.env, CODEX_FIXTURE_MALFORMED: '1' });
     await expect(malformed.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CODEX_PROTOCOL_INVALID');
-    const hanging = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 100 }, { ...process.env, EMBERFOLD_FIXTURE_HANG: '1' });
+    const hanging = createCodexSummarizer({ id: 'fixture', command, model: 'fixture', cwd: process.cwd(), timeout_ms: 100 }, { ...process.env, CODEX_FIXTURE_HANG: '1' });
     await expect(hanging.summarize({ prompt: 'Synthetic history', output_tokens: 128, signal: AbortSignal.timeout(5000) })).rejects.toThrow('CANCELLED');
   });
 });

@@ -13,12 +13,16 @@ configuration; do not put secret values in JSON or request bodies.
   "token_env": "EMBERFOLD_API_TOKEN",
   "default_provider_id": "local",
   "providers": [{
-    "type": "http", "id": "local", "base_url": "http://model.example.com:8000/v1",
+    "type": "http", "id": "local", "base_url": "https://model.example.com/v1",
     "model": "configured-model", "api_key_env": "LOCAL_MODEL_TOKEN",
     "input_tokens_path": "chat/completions/input_tokens"
   }]
 }
 ```
+
+An `http` provider with `api_key_env` must use `https:` unless its host is loopback
+(`localhost`, `127.0.0.0/8` or `[::1]`), so the credential is never sent in clear
+text across a network. A provider without a credential may still use plain HTTP.
 
 ### Routing through Emberpath
 
@@ -97,7 +101,10 @@ read-only integrity checks for up to twenty minutes per artifact. If scanning is
 still pending, inspect registry availability before running publication again.
 
 The optional Codex adapter uses the local tools-disabled stdio app-server and
-existing owner authentication. The protocol is pinned by tests and verified
+existing owner authentication. The child process receives only the variables it
+needs (`HOME`, `PATH`, locale, temporary and XDG directories, CA and proxy settings,
+and `CODEX_*`; `OPENAI_API_KEY` and `OPENAI_BASE_URL` only with `auth_mode: "apiKey"`),
+never the service token or other providers' credentials. The protocol is pinned by tests and verified
 against the installed binary. Reference: [official Codex app-server documentation](https://learn.chatgpt.com/docs/app-server).
 
 ## Hermes plugin

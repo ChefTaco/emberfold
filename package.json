@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npm run build -w @hivemagnus/emberfold -w @hivemagnus/emberfold-server -w @hivemagnus/emberfold-cli",
     "typecheck": "npm run typecheck --workspaces",
+    "pretest": "npm run build",
     "test": "vitest run",
     "hermes:build": "tsc -p integrations/emberfold-hermes/tsconfig.json",
     "hermes:test": "npm run hermes:build && python3 -m unittest discover -s integrations/emberfold-hermes/tests -v",

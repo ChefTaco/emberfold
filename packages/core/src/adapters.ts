@@ -3,10 +3,17 @@ import { createInterface } from 'node:readline';
 import { z } from 'zod';
 import { SummarySchema, type ChatMessage, type Summarizer, type TokenCounter } from './contracts.js';
 
+/** `localhost`, `127.0.0.0/8` and `[::1]`: hosts a plain-HTTP provider may receive a credential on. */
+export function isLoopbackHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '[::1]' || /^127(?:\.\d{1,3}){3}$/.test(hostname);
+}
+
 export function createHttpSummarizer(config: { id: string; base_url: string; model: string; api_key_env?: string | undefined;
   input_tokens_path?: string | undefined; timeout_ms?: number | undefined }, env: NodeJS.ProcessEnv = process.env): Summarizer {
   const base = new URL(config.base_url.endsWith('/') ? config.base_url : config.base_url + '/');
   if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash) throw new Error('Invalid provider URL');
+  // A credential only travels over TLS, except to a provider on this host.
+  if (config.api_key_env && base.protocol === 'http:' && !isLoopbackHost(base.hostname)) throw new Error('Invalid provider URL: a provider credential requires HTTPS unless the host is loopback');
   const token = config.api_key_env ? env[config.api_key_env] : undefined;
   if (config.api_key_env && !token) throw new Error('PROVIDER_UNCONFIGURED: credential environment variable is missing');
   const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -50,6 +57,19 @@ const shape = <T>(schema: z.ZodType<T>, value: unknown): T => {
   return parsed.data;
 };
 type Rpc = { id?: number | string; method?: string; params?: unknown; result?: unknown; error?: unknown };
+/** Variables the Codex app-server needs to run, find its own configuration and login, and reach the network. */
+const CodexEnvironment = new Set(['HOME', 'PATH', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'TMPDIR', 'TMP', 'TEMP',
+  'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME', 'XDG_RUNTIME_DIR', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'NODE_EXTRA_CA_CERTS',
+  'HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'all_proxy', 'no_proxy',
+  'SYSTEMROOT', 'WINDIR', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA']);
+/**
+ * The environment for the Codex child process: the allowlist above, `CODEX_*`, and `OPENAI_API_KEY`/`OPENAI_BASE_URL`
+ * only for `apiKey` authentication. The service's own token and other providers' credentials never reach the model-driven process.
+ */
+export function codexEnvironment(env: NodeJS.ProcessEnv, authMode: 'chatgpt' | 'apiKey' = 'chatgpt'): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name, value]) => value !== undefined && (CodexEnvironment.has(name) ||
+    name.startsWith('CODEX_') || authMode === 'apiKey' && (name === 'OPENAI_API_KEY' || name === 'OPENAI_BASE_URL'))));
+}
 const DisabledFeatures = ['shell_tool', 'unified_exec', 'apps', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access',
   'computer_use', 'image_generation', 'in_app_browser', 'multi_agent', 'multi_agent_v2', 'view_image'];
 export function createCodexSummarizer(config: { id: string; command: string; model: string; cwd: string; effort?: string | undefined;
@@ -61,7 +81,7 @@ export function createCodexSummarizer(config: { id: string; command: string; mod
     const signal = AbortSignal.any([input.signal, AbortSignal.timeout(config.timeout_ms ?? 120000)]);
     const child = spawn(config.command, ['app-server', ...DisabledFeatures.flatMap(feature => ['--disable', feature]), '-c', 'web_search="disabled"',
       ...(config.disabled_mcp_servers ?? []).flatMap(name => ['-c', `mcp_servers.${name}.enabled=false`])],
-      { cwd: config.cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
+      { cwd: config.cwd, env: codexEnvironment(env, config.auth_mode), stdio: ['pipe', 'pipe', 'pipe'] });
     child.stderr.resume();
     child.stdin.on('error', () => {});
     const lines = createInterface({ input: child.stdout });
