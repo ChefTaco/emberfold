@@ -15,6 +15,10 @@
 - The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
 - The Ardent compatibility gate in CI now checks Ardent 3.3.0, the shipping consumer, instead of the 2.1.1 extraction commit, and keeps every `@types/*` package Ardent declares so its full typecheck runs.
 
+### Changed
+
+- Summarizer excerpts now carry the message `role`, and on a message's first excerpt its `tool_call_id` and a bounded rendering of its `tool_calls` (at most 16 calls, each with its ID, function name and arguments cut to 512 characters; `tool_calls_omitted` counts the rest). Previously the summarizer saw only message text, so it could not tell user, assistant and tool text apart, and the calls an assistant made were dropped. When a message's calls cannot fit the summarizer input budget, only the call IDs and names are kept. The evaluation adds a tool-call scenario whose answer exists only in a tool call. Custom summarizers that parse the prompt see the new optional fields; existing fields are unchanged.
+
 ## [0.4.0] - 2026-11-13
 
 ### Fixed

@@ -133,6 +133,45 @@ describe('portable context continuity', () => {
   });
 });
 
+describe('summarizer excerpts', () => {
+  const toolHistory = () => {
+    const request = fixture();
+    const calls = Array.from({ length: 18 }, (_unused, index) => ({ id: `call-${index}`, type: 'function' as const,
+      function: { name: index === 0 ? 'request_preview_deployment' : `lookup_${index}`, arguments: index === 0 ? '{"target":"staging-eu"}' : JSON.stringify({ query: 'q'.repeat(2000) }) } }));
+    request.history.splice(2, 2, { id: 'user-1', role: 'user', content: 'Deploy the preview.' },
+      { id: 'assistant-1', role: 'assistant', content: null, tool_calls: calls },
+      ...calls.map(call => ({ id: `tool-${call.id}`, role: 'tool' as const, tool_call_id: call.id, content: 'Requested.' })),
+      { id: 'assistant-1b', role: 'assistant', content: 'Requested; outcome unknown.' });
+    request.exchanges[1] = { id: 'exchange-1', completed: true, message_ids: ['user-1', 'assistant-1', ...calls.map(call => `tool-${call.id}`), 'assistant-1b'] };
+    return request;
+  };
+  type Seen = { message_id: string; role: string; text: string; tool_call_id?: string; tool_calls?: Array<{ id: string; name: string; arguments?: string }>; tool_calls_omitted?: number };
+  const capture = (seen: Seen[]) => ({ ...deterministicSummarizer, async summarize(input: { prompt: string; output_tokens: number; signal: AbortSignal }) {
+    seen.push(...(JSON.parse(input.prompt) as { excerpts: Seen[] }).excerpts);
+    return deterministicSummarizer.summarize(input);
+  } });
+  it('carries each message role and a bounded rendering of tool calls', async () => {
+    const seen: Seen[] = [];
+    const result = await prepareContext(toolHistory(), { summarizer: capture(seen) });
+    expect(result.compacted).toBe(true);
+    expect(seen.find(item => item.message_id === 'user-1')?.role).toBe('user');
+    const call = seen.find(item => item.message_id === 'assistant-1')!;
+    expect(call.role).toBe('assistant');
+    expect(call.tool_calls).toHaveLength(16);
+    expect(call.tool_calls_omitted).toBe(2);
+    expect(call.tool_calls![0]).toEqual({ id: 'call-0', name: 'request_preview_deployment', arguments: '{"target":"staging-eu"}' });
+    expect(call.tool_calls![1]!.arguments).toHaveLength(512);
+    expect(seen.find(item => item.message_id === 'tool-call-3')).toMatchObject({ role: 'tool', tool_call_id: 'call-3', text: 'Requested.' });
+  });
+  it('keeps only call names when the arguments cannot fit the summarizer budget', async () => {
+    const seen: Seen[] = [];
+    const result = await prepareContext({ ...toolHistory(), policy: { summarizer_input_tokens: 3000 } }, { summarizer: capture(seen) });
+    expect(result.compacted).toBe(true);
+    const call = seen.find(item => item.message_id === 'assistant-1')!;
+    expect(call.tool_calls![0]).toEqual({ id: 'call-0', name: 'request_preview_deployment' });
+  });
+});
+
 describe('active prompt fitting', () => {
   const messages = [
     { role: 'system' as const, content: 'Current authority' }, { role: 'user' as const, content: 'Current goal' },
@@ -182,13 +221,26 @@ describe('active prompt fitting', () => {
   });
   it('measures summarizer chunks only near the input budget', async () => {
     const request = fixture();
-    request.history[2]!.content = 'Long requirement. '.repeat(4000);
-    let counts = 0;
-    const summarizer = { ...deterministicSummarizer, countTokens: async (input: unknown[]) => { counts++; return Math.ceil(Buffer.byteLength(JSON.stringify(input)) / 4); } };
+    // Three bytes a character: the first chunk tried for each step is far over budget.
+    request.history[2]!.content = '未完了の要件を保持する。'.repeat(3000);
+    const measured: number[] = [];
+    let summaries = 0;
+    const summarizer = { id: 'fixture', model: 'synthetic',
+      countTokens: async (input: unknown[]) => { measured.push(Math.ceil(Buffer.byteLength(JSON.stringify(input)) / 4)); return measured.at(-1)!; },
+      async summarize({ prompt }: { prompt: string }) {
+        summaries++;
+        const input = JSON.parse(prompt) as { previous: Summary; excerpts: Array<{ message_id: string }> };
+        const items = [...input.previous.items];
+        for (const excerpt of input.excerpts) if (!items.some(item => item.source_message_ids.includes(excerpt.message_id))) items.push({ id: `item-${excerpt.message_id}`,
+          kind: 'open_item' as const, text: 'Retained.', source_message_ids: [excerpt.message_id], historical_status: 'historical_unverified' as const,
+          epistemic_status: 'unresolved' as const, supersedes: [], resolves: [] });
+        return JSON.stringify({ items });
+      } };
     const result = await prepareContext({ ...request, policy: { summarizer_input_tokens: 2000 } }, { summarizer });
     expect(result.compacted).toBe(true);
-    // The unoptimized loop measured every halving step of every chunk (105 calls here); clearly oversized steps are now skipped.
-    expect(counts).toBeLessThanOrEqual(80);
+    // Each chunk is measured about once; every halving step used to be measured too (about three calls a chunk).
+    expect(measured.length).toBeLessThanOrEqual(summaries + 3);
+    expect(measured.slice(2).every(value => value <= 2000 * 1.25 * 1.1)).toBe(true);
   });
   it('fails rather than shorten protected tool results or hide oversized tool schemas', async () => {
     await expect(fitContext({ messages, max_input_tokens: 2000, protected_indices: [7] })).rejects.toThrow('BUDGET');
