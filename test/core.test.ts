@@ -221,13 +221,26 @@ describe('active prompt fitting', () => {
   });
   it('measures summarizer chunks only near the input budget', async () => {
     const request = fixture();
-    request.history[2]!.content = 'Long requirement. '.repeat(4000);
-    let counts = 0;
-    const summarizer = { ...deterministicSummarizer, countTokens: async (input: unknown[]) => { counts++; return Math.ceil(Buffer.byteLength(JSON.stringify(input)) / 4); } };
+    // Three bytes a character: the first chunk tried for each step is far over budget.
+    request.history[2]!.content = '未完了の要件を保持する。'.repeat(3000);
+    const measured: number[] = [];
+    let summaries = 0;
+    const summarizer = { id: 'fixture', model: 'synthetic',
+      countTokens: async (input: unknown[]) => { measured.push(Math.ceil(Buffer.byteLength(JSON.stringify(input)) / 4)); return measured.at(-1)!; },
+      async summarize({ prompt }: { prompt: string }) {
+        summaries++;
+        const input = JSON.parse(prompt) as { previous: Summary; excerpts: Array<{ message_id: string }> };
+        const items = [...input.previous.items];
+        for (const excerpt of input.excerpts) if (!items.some(item => item.source_message_ids.includes(excerpt.message_id))) items.push({ id: `item-${excerpt.message_id}`,
+          kind: 'open_item' as const, text: 'Retained.', source_message_ids: [excerpt.message_id], historical_status: 'historical_unverified' as const,
+          epistemic_status: 'unresolved' as const, supersedes: [], resolves: [] });
+        return JSON.stringify({ items });
+      } };
     const result = await prepareContext({ ...request, policy: { summarizer_input_tokens: 2000 } }, { summarizer });
     expect(result.compacted).toBe(true);
-    // The unoptimized loop measured every halving step of every chunk (105 calls here); clearly oversized steps are now skipped.
-    expect(counts).toBeLessThanOrEqual(80);
+    // Each chunk is measured about once; every halving step used to be measured too (about three calls a chunk).
+    expect(measured.length).toBeLessThanOrEqual(summaries + 3);
+    expect(measured.slice(2).every(value => value <= 2000 * 1.25 * 1.1)).toBe(true);
   });
   it('fails rather than shorten protected tool results or hide oversized tool schemas', async () => {
     await expect(fitContext({ messages, max_input_tokens: 2000, protected_indices: [7] })).rejects.toThrow('BUDGET');
