@@ -104,8 +104,9 @@ file and never overwrites existing content. Dry runs make no model calls and do
 not write output files. Exit codes: 0 success, 2 invalid input, 3 budget exhaustion,
 4 provider/tokenizer unavailable or deadline exceeded.
 
-HTTP exposes `POST /v1/prepare`, `/v1/checkpoints/validate`, and
-`/v1/checkpoints/rebuild`, plus metadata-only `/healthz` and `/readyz`.
+HTTP exposes `POST /v1/prepare`, `/v1/checkpoints/validate`,
+`/v1/checkpoints/rebuild` and `/v1/recall`, authenticated Prometheus `GET /metrics`,
+plus metadata-only `/health/live`, `/health/ready`, `/healthz` and `/readyz`.
 See [contracts](contracts/openapi.json), [operations](docs/OPERATIONS.md), and
 [evaluation](docs/EVALUATION.md).
 

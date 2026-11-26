@@ -11,11 +11,15 @@ const EnvName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Invalid environmen
 const EmberpathProvider = z.object({ type: z.literal('emberpath'), id: z.string().min(1), model: z.string().min(1),
   base_url: z.string().url().optional(), base_url_env: EnvName.default('EMBERPATH_URL'), api_key_env: EnvName.default('EMBERPATH_API_KEY'),
   input_tokens_path: z.string().optional(), timeout_ms: z.number().int().positive().optional() }).strict();
+/** Oathweave client-credentials tokens accepted as well as the static bearer: exact audience, and the scope in `scope` or `permissions`. */
+const OathweaveConfig = z.object({ issuer: z.union([z.string().url(), z.array(z.string().url()).min(1)]),
+  native_issuers: z.array(z.string()).optional(), audience: z.string().min(1).default('emberfold'), jwks_url: z.string().url(),
+  scope: z.string().regex(/^[\x21-\x7e]{1,128}$/, 'Invalid scope').default('emberfold:context') }).strict();
 export const ServiceConfigSchema = z.object({ providers: z.array(z.discriminatedUnion('type', [HttpProvider, EmberpathProvider, CodexProvider])).default([]),
   default_provider_id: z.string().optional(), token_env: z.string().default('EMBERFOLD_API_TOKEN'),
   host: z.enum(['127.0.0.1', '::1', '0.0.0.0']).default('127.0.0.1'), port: z.number().int().min(0).max(65535).default(8096),
   max_body_bytes: z.number().int().positive().default(16777216), concurrency: z.number().int().min(1).max(128).default(2),
-  timeout_ms: z.number().int().positive().default(120000) }).strict();
+  timeout_ms: z.number().int().positive().default(120000), oathweave: OathweaveConfig.optional() }).strict();
 export type ServiceConfig = z.infer<typeof ServiceConfigSchema>;
 type EmberpathProviderConfig = z.infer<typeof EmberpathProvider>;
 /** Resolves an `emberpath` provider into the shared OpenAI-compatible `http` configuration at `<emberpath>/v1`. */

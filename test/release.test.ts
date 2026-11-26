@@ -13,6 +13,7 @@ describe('release version', () => {
     }
     expect(await read('packages/cli/src/index.ts')).toContain(`process.stdout.write('${version}\\n')`);
     expect(await read('packages/server/src/index.ts')).toContain(`{ status: 'ok', version: '${version}' }`);
+    expect(await read('packages/server/src/index.ts')).toContain(`createHealth({ service: 'emberfold', version: '${version}'`);
     expect(await read('packages/core/src/adapters.ts')).toContain(`title: 'Emberfold', version: '${version}'`);
   });
 });

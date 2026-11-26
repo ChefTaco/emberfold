@@ -7,6 +7,13 @@
 - An `http` provider that sends a credential (`api_key_env`) now requires an `https:` URL unless the host is loopback (`localhost`, `127.0.0.0/8`, `[::1]`). Previously the Bearer token was sent over plain HTTP to any host. **Upgrade note:** a configuration such as `"base_url": "http://model.example.com:8000/v1"` with `api_key_env` now fails at startup with `Invalid provider URL: a provider credential requires HTTPS unless the host is loopback`; move the provider behind TLS, or reach it through a loopback tunnel or proxy. Providers without a credential are unchanged.
 - The Codex child process no longer inherits the whole environment. It receives an allowlist (`HOME`, `PATH`, user, locale, time zone, temporary and XDG directories, CA and proxy settings, `CODEX_*`, and `OPENAI_API_KEY`/`OPENAI_BASE_URL` only with `auth_mode: "apiKey"`), so the service token and other providers' credentials no longer reach the model-driven process. The new `codexEnvironment()` export shows the filtering. **Upgrade note:** if your Codex setup depends on another variable, set it in Codex's own configuration or with a `CODEX_*` name.
 
+### Added
+
+- The HTTP service can accept Oathweave client-credentials tokens alongside the static bearer (new optional `oathweave` configuration: issuer, optional native issuers, JWKS URL, audience `emberfold` and scope `emberfold:context` by default). Tokens must be service tokens for that exact audience and carry the scope in `scope` or `permissions`; request logs record which caller was authenticated. Without `oathweave`, authentication is unchanged.
+- `POST /v1/recall` on the HTTP service returns original messages by ID, like the CLI's `recall`.
+- Authenticated Prometheus `GET /metrics`: requests by operation and status, request duration, compactions, provider failures by code, requests in flight and readiness.
+- The service uses `@hivemagnus/hive-common` 0.7.0: suite health paths `/health/live` and `/health/ready`, `X-Request-Id` on every response (the caller's when valid), and structured JSON request logs with request and trace IDs, the error code and `x-hive-execution` attribution.
+
 ### Fixed
 
 - `fitContext` no longer splits a surrogate pair when it shortens a tool result.
@@ -14,9 +21,11 @@
 - `npm test` builds the workspace first, so a stale `dist/` no longer makes local test runs fail.
 - The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
 - The Ardent compatibility gate in CI now checks Ardent 3.3.0, the shipping consumer, instead of the 2.1.1 extraction commit, and keeps every `@types/*` package Ardent declares so its full typecheck runs.
+- The service matches routes by path, so `/healthz?probe=1` answers instead of returning 401, and a query string on an API path no longer gives 404. Request logs record the matched route instead of the raw URL, so query strings are never logged.
 
 ### Changed
 
+- Request log lines now come from HiveCommon's logger (`time`, `level`, `msg`, `service` fields added, secrets redacted) and carry `request_id`, `trace_id` and, on failure, `error`. A custom `log` sink passed to `createEmberfoldServer` receives the same record fields as before plus these. The `/healthz` and `/readyz` bodies are unchanged.
 - Summarizer excerpts now carry the message `role`, and on a message's first excerpt its `tool_call_id` and a bounded rendering of its `tool_calls` (at most 16 calls, each with its ID, function name and arguments cut to 512 characters; `tool_calls_omitted` counts the rest). Previously the summarizer saw only message text, so it could not tell user, assistant and tool text apart, and the calls an assistant made were dropped. When a message's calls cannot fit the summarizer input budget, only the call IDs and names are kept. The evaluation adds a tool-call scenario whose answer exists only in a tool call. Custom summarizers that parse the prompt see the new optional fields; existing fields are unchanged.
 
 ## [0.4.0] - 2026-11-13

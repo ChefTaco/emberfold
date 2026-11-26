@@ -182,6 +182,72 @@
         }
       }
     },
+    "/v1/recall": {
+      "post": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RecallRequest/properties/history/items"
+                      }
+                    }
+                  },
+                  "required": [
+                    "messages"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or schema"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Browser origin rejected"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "422": {
+            "description": "Context cannot be prepared"
+          },
+          "429": {
+            "description": "Overloaded"
+          },
+          "504": {
+            "description": "Deadline exceeded"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "responses": {
@@ -202,6 +268,54 @@
           },
           "503": {
             "description": "Service is draining"
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Service metadata"
+          },
+          "503": {
+            "description": "Service is draining"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Service metadata"
+          },
+          "503": {
+            "description": "Service is draining"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus text exposition format",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }

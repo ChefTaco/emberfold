@@ -64,10 +64,41 @@ agent ID). The plaintext key is printed once; store it only in the variable name
 by `api_key_env`. Keys enrolled through Emberpath's actor credential flow already
 carry `actorId`.
 
-Use a high-entropy bearer token of at least 32 characters. Only configured provider
+Use a high-entropy bearer token of at least 32 characters. The service can also
+accept Oathweave client-credentials tokens, so each caller has its own identity:
+
+```json
+"oathweave": {
+  "issuer": "https://identity.example.com", "native_issuers": ["hive-iam"],
+  "jwks_url": "https://identity.example.com/.well-known/jwks.json",
+  "audience": "emberfold", "scope": "emberfold:context"
+}
+```
+
+A token is accepted only when it is an RS256 service token for exactly that
+`audience`, from a listed issuer, and carries `scope` in its `scope` claim or its
+`permissions`. A valid token without it gets `403 FORBIDDEN`; key discovery that
+fails gets a retryable `503 AUTH_UNAVAILABLE`. User tokens are refused. The static
+bearer keeps working, and request logs record the caller (`static`, or the service
+subject and client ID). `issuer` and `jwks_url` must use HTTPS. Only configured provider
 IDs are accepted. Remote access requires a TLS reverse proxy; the host-side
 container port is bound to loopback. Health probes reveal no prompts or secrets.
 Default limits: 16 MiB request body, two concurrent requests, 120-second deadline.
+
+Unauthenticated health follows the suite paths `/health/live` and `/health/ready`
+(the original `/healthz` and `/readyz` bodies are unchanged). Every response carries
+`X-Request-Id`, taken from the caller's `X-Request-Id` when valid. The service logs one
+JSON line per API request on stderr with the operation, status, duration, request and
+trace IDs, the error code if any, and the caller's `x-hive-execution` attribution
+(`root`, `parent`, `self`) when present. Attribution is never authority. Bodies,
+tokens and query strings are not logged.
+
+`GET /metrics` requires the service bearer token (in Prometheus, use
+`authorization: { credentials_file: ... }`). It exports
+`emberfold_requests_total{operation,status}`, the
+`emberfold_request_duration_seconds` histogram, `emberfold_compactions_total`,
+`emberfold_provider_failures_total{code}`, `emberfold_requests_in_flight` and
+`emberfold_ready`. Counters reset when the process restarts.
 
 `npm run deploy -- preflight` reads the ignored root `.env` using
 `DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_PASSWORD`; optional `DEPLOY_PORT` and
