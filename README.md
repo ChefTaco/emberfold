@@ -58,10 +58,10 @@ The service and CLI accept `http`, opt-in `emberpath` (an Emberpath gateway; see
 
 The [standard Hermes plugin](integrations/emberfold-hermes/README.md) runs
 Emberfold locally and reuses Hermes's compression model and credentials. Install
-the verified [Hermes Plugin 0.1.1](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1):
+[Hermes Plugin 0.2.0](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.2.0):
 
 ```bash
-hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref 416b6fb66149ac17fbca54cb46ec79f39214d647 --enable
+hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref f77445764f57482bc5a7f14bbd5e1d5aa4c95401 --enable
 hermes emberfold setup
 hermes emberfold status --json
 ```
@@ -73,7 +73,7 @@ verifying a real session. Installation alone is not activation.
 
 No Emberfold account, remote service, or Hermes fork is required. Existing memory
 providers remain independent. The plugin is versioned separately from the core:
-plugin `0.1.1` pins `@hivemagnus/emberfold@0.1.0`. Follow the plugin's
+plugin `0.2.0` pins `@hivemagnus/emberfold@0.4.0`. Follow the plugin's
 [onboarding and rollback guide](integrations/emberfold-hermes/README.md) and
 [scoped adoption checklist](integrations/emberfold-hermes/DEPLOYMENT.md).
 

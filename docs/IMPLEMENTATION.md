@@ -19,6 +19,7 @@
 - [x] Source-cited handoffs committed by Hermes, exact protection, scoped recall, rebuild, and derived-index recovery.
 - [x] Isolated model-backed automatic/manual compaction, continuation, restart, recovery, and previous-engine rollback.
 - [x] Plugin `0.1.1` published at `416b6fb66149ac17fbca54cb46ec79f39214d647`, pinning core `0.1.0`.
+- [x] Plugin `0.2.0` published at `f77445764f57482bc5a7f14bbd5e1d5aa4c95401`, pinning core `0.4.0`.
 - [x] Selected production home accepted through the real gateway, including compaction, continuation, exact recall, rebuild, and restart recovery.
 - [x] Existing memory provider, unrelated profile settings and effective engines, credentials, schedules, and original messages preserved.
 
