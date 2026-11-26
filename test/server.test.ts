@@ -110,10 +110,10 @@ describe('authenticated stateless HTTP wrapper', () => {
   });
   it('serves suite health paths and matches routes by path, ignoring the query string', async () => {
     const { url } = await serve();
-    expect(await (await fetch(url + '/healthz?probe=1')).json()).toEqual({ status: 'ok', version: '0.4.0' });
+    expect(await (await fetch(url + '/healthz?probe=1')).json()).toEqual({ status: 'ok', version: '0.5.0' });
     expect((await fetch(url + '/readyz?probe=1')).status).toBe(200);
     const live = await fetch(url + '/health/live');
-    expect([live.status, await live.json()]).toEqual([200, expect.objectContaining({ status: 'live', service: 'emberfold', version: '0.4.0' })]);
+    expect([live.status, await live.json()]).toEqual([200, expect.objectContaining({ status: 'live', service: 'emberfold', version: '0.5.0' })]);
     const ready = await fetch(url + '/health/ready');
     expect([ready.status, await ready.json()]).toEqual([200, expect.objectContaining({ status: 'ready', checks: { accepting: expect.objectContaining({ status: 'up' }) } })]);
     expect((await fetch(url + '/health/ready', { headers: { Origin: 'https://example.com' } })).status).toBe(403);
