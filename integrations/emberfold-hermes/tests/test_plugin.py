@@ -496,12 +496,30 @@ class OnboardingTests(unittest.TestCase):
 
 
 class NodeRuntimeSecurityTests(unittest.TestCase):
-    def test_patched_node_security_minimums(self):
+    def test_installed_engine_must_match_the_declared_pin(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             package = root / 'node_modules/@hivemagnus/emberfold/package.json'
             package.parent.mkdir(parents=True)
             package.write_text(json.dumps({'version': '0.1.0'}))
+            (root / 'package.json').write_text(json.dumps({'dependencies': {'@hivemagnus/emberfold': '0.4.0'}}))
+            with patch.object(protocol, 'ROOT', root), \
+                    patch.object(protocol.shutil, 'which', return_value='/synthetic/node'), \
+                    patch.object(protocol.subprocess, 'run', return_value=types.SimpleNamespace(stdout='v24.22.3')):
+                with self.assertRaisesRegex(protocol.EmberfoldError, 'DEPENDENCY_VERSION_MISMATCH'):
+                    protocol.node_path()
+
+    def test_plugin_pins_the_current_engine(self):
+        manifest = json.loads((Path(__file__).resolve().parents[1] / 'package.json').read_text())
+        self.assertEqual(manifest['dependencies']['@hivemagnus/emberfold'], '0.4.0')
+
+    def test_patched_node_security_minimums(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / 'node_modules/@hivemagnus/emberfold/package.json'
+            package.parent.mkdir(parents=True)
+            package.write_text(json.dumps({'version': '0.4.0'}))
+            (root / 'package.json').write_text(json.dumps({'dependencies': {'@hivemagnus/emberfold': '0.4.0'}}))
             for version, accepted in [('24.22.1', False), ('24.22.2', False), ('24.22.3', True),
                                       ('26.13.0', False), ('26.13.1', True), ('26.14.0', True),
                                       ('25.0.0', False), ('27.0.0', False)]:

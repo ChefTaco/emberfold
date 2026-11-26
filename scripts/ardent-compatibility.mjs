@@ -40,8 +40,8 @@ try {
   const tarball = join(temporary, pack.filename);
   await writeFile(manifestPath, JSON.stringify({ ...original, private: true,
     dependencies: { ...original.dependencies, '@hivemagnus/emberfold': `file:${tarball}` },
-    devDependencies: { '@types/better-sqlite3': original.devDependencies['@types/better-sqlite3'],
-      '@types/express': original.devDependencies['@types/express'], '@types/ws': original.devDependencies['@types/ws'],
+    // Keep every type package Ardent declares (its typecheck needs them); the tool chain comes from this workspace.
+    devDependencies: { ...Object.fromEntries(Object.entries(original.devDependencies).filter(([name]) => name.startsWith('@types/'))),
       '@types/node': workspace.devDependencies['@types/node'], vitest: workspace.devDependencies.vitest, typescript: workspace.devDependencies.typescript },
     overrides: workspace.overrides
   }));

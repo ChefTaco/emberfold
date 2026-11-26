@@ -29,11 +29,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: ChefTaco/Ardent
-          ref: 90ec90594a15ad412e1385dc6cb9972f15eec66a
+          ref: 1096817e9c3c0ce5060d5942c40409eb5f57097b # v3.3.0
           path: output/compatibility/ardent
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci --ignore-scripts
-      - run: npm run compat:ardent -- --source output/compatibility/ardent --revision 90ec90594a15ad412e1385dc6cb9972f15eec66a
+      - run: npm run compat:ardent -- --source output/compatibility/ardent --revision 1096817e9c3c0ce5060d5942c40409eb5f57097b

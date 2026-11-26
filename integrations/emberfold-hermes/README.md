@@ -18,7 +18,9 @@ hermes emberfold status --json
 ```
 
 This pins [plugin 0.1.1](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1),
-which uses `@hivemagnus/emberfold@0.1.0`. Plugin and core versions are independent;
+which uses `@hivemagnus/emberfold@0.1.0`. The next plugin release pins core 0.4.0,
+which fixes the over-truncation of later tool results and reports provider
+failures with stable codes. Plugin and core versions are independent;
 use 0.1.1 rather than the superseded Hermes plugin 0.1.0. Future pins must be
 reviewed **40-character commits**, not tags or branches. Accept Hermes's separate
 Node dependency question during installation. If dependencies were skipped, run

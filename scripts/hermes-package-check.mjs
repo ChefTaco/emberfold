@@ -11,8 +11,8 @@ try {
     filter: path => !path.split('/').some(part => part === 'node_modules' || part === '__pycache__') });
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
   const lock = JSON.parse(await readFile(join(directory, 'package-lock.json'), 'utf8'));
-  if (manifest.dependencies['@hivemagnus/emberfold'] !== '0.1.0' ||
-      lock.packages['node_modules/@hivemagnus/emberfold'].version !== '0.1.0' ||
+  if (manifest.dependencies['@hivemagnus/emberfold'] !== '0.4.0' ||
+      lock.packages['node_modules/@hivemagnus/emberfold'].version !== '0.4.0' ||
       !lock.packages['node_modules/@hivemagnus/emberfold'].integrity.startsWith('sha512-')) throw new Error('Hermes sidecar dependency is not pinned');
   execFileSync('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: directory, stdio: 'pipe' });
   const result = JSON.parse(execFileSync(process.execPath, ['bridge/worker.js'], { cwd: directory,

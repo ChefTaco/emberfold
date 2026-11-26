@@ -16,6 +16,27 @@ describe('release version', () => {
     expect(await read('packages/core/src/adapters.ts')).toContain(`title: 'Emberfold', version: '${version}'`);
   });
 });
+describe('documented version pins', () => {
+  const read = (path: string) => readFile(new URL('../' + path, import.meta.url), 'utf8');
+  it('names the Ardent commit that the CI compatibility gate checks', async () => {
+    const workflow = await read('.github/workflows/ci.yml');
+    const refs = [...workflow.matchAll(/ref: ([0-9a-f]{40}) # (v\d+\.\d+\.\d+)/g)];
+    expect(refs).toHaveLength(1);
+    const [, commit, tag] = refs[0]!;
+    expect(workflow).toContain(`--revision ${commit}`);
+    const doc = await read('docs/MAGNUS.md');
+    expect(doc).toContain(commit);
+    expect(doc).toContain(`Ardent ${tag!.slice(1)}`);
+    expect(doc).toContain(`tag \`${tag}\``);
+  });
+  it('keeps the Hermes plugin pin consistent across its manifest, lockfile and package check', async () => {
+    const manifest = JSON.parse(await read('integrations/emberfold-hermes/package.json')) as { dependencies: Record<string, string> };
+    const lock = JSON.parse(await read('integrations/emberfold-hermes/package-lock.json')) as { packages: Record<string, { version: string }> };
+    const pin = manifest.dependencies['@hivemagnus/emberfold']!;
+    expect(lock.packages['node_modules/@hivemagnus/emberfold']!.version).toBe(pin);
+    expect(await read('scripts/hermes-package-check.mjs')).toContain(`!== '${pin}'`);
+  });
+});
 describe('registry publication verification', () => {
   it('waits for accepted publications to become visible without repeating publication', async () => {
     let reads = 0;

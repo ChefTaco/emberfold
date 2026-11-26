@@ -29,7 +29,8 @@ def node_path():
         raise EmberfoldError("NODE_UNSUPPORTED: require ^24.22.3 or ^26.13.1")
     if not (ROOT / "node_modules/@hivemagnus/emberfold/package.json").is_file():
         raise EmberfoldError("DEPENDENCIES_MISSING: run hermes emberfold setup --install-deps")
-    if json.loads((ROOT / "node_modules/@hivemagnus/emberfold/package.json").read_text())["version"] != "0.1.0":
+    pinned = json.loads((ROOT / "package.json").read_text())["dependencies"]["@hivemagnus/emberfold"]
+    if json.loads((ROOT / "node_modules/@hivemagnus/emberfold/package.json").read_text())["version"] != pinned:
         raise EmberfoldError("DEPENDENCY_VERSION_MISMATCH: reinstall the pinned lockfile")
     return binary
 
