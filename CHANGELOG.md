@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Security
+
+- An `http` provider that sends a credential (`api_key_env`) now requires an `https:` URL unless the host is loopback (`localhost`, `127.0.0.0/8`, `[::1]`). Previously the Bearer token was sent over plain HTTP to any host. **Upgrade note:** a configuration such as `"base_url": "http://model.example.com:8000/v1"` with `api_key_env` now fails at startup with `Invalid provider URL: a provider credential requires HTTPS unless the host is loopback`; move the provider behind TLS, or reach it through a loopback tunnel or proxy. Providers without a credential are unchanged.
+- The Codex child process no longer inherits the whole environment. It receives an allowlist (`HOME`, `PATH`, user, locale, time zone, temporary and XDG directories, CA and proxy settings, `CODEX_*`, and `OPENAI_API_KEY`/`OPENAI_BASE_URL` only with `auth_mode: "apiKey"`), so the service token and other providers' credentials no longer reach the model-driven process. The new `codexEnvironment()` export shows the filtering. **Upgrade note:** if your Codex setup depends on another variable, set it in Codex's own configuration or with a `CODEX_*` name.
+
+### Fixed
+
+- `fitContext` no longer splits a surrogate pair when it shortens a tool result.
+- With a provider tokenizer, identical input is measured once per operation, and candidate prompts that the local estimate (scaled by the last measured ratio) puts more than 25% over budget are rejected without a provider call. A fit is still always decided by a measurement. This removes most tokenizer round trips while halving summarizer chunks and shortening tool results.
+- `npm test` builds the workspace first, so a stale `dist/` no longer makes local test runs fail.
+
 ## [0.4.0] - 2026-11-13
 
 ### Fixed

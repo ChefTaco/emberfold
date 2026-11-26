@@ -157,6 +157,39 @@ describe('active prompt fitting', () => {
     expect(result.changes).toEqual([{ action: 'truncated', message_ids: ['3'], source_sha256: sha256('x'.repeat(12000)) }]);
     expect(result.messages[4]?.content).toBe('y'.repeat(12000));
   });
+  it('never splits a surrogate pair when shortening a tool result', async () => {
+    // 4,000 is the first excerpt length tried for an 8,001-code-unit result; an emoji starts at offset 3,999.
+    const content = 'a'.repeat(3999) + '😀'.repeat(2001);
+    const single = [{ role: 'user' as const, content: 'Current goal' },
+      { role: 'assistant' as const, content: null, tool_calls: [{ id: 'only', type: 'function' as const, function: { name: 'read', arguments: '{}' } }] },
+      { role: 'tool' as const, tool_call_id: 'only', content }];
+    const result = await fitContext({ messages: single, max_input_tokens: 2500 });
+    const excerpt = (JSON.parse(result.messages[2]!.content!) as { excerpt: string }).excerpt;
+    expect(excerpt.length % 2).toBe(1);
+    expect(/[\uD800-\uDBFF]$/.test(excerpt)).toBe(false);
+    expect(content.startsWith(excerpt)).toBe(true);
+  });
+  it('skips provider counts that are clearly over budget and never measures the same input twice', async () => {
+    const seen: string[] = [];
+    // A provider that counts one token per four bytes: close to, but different from, the local estimate.
+    const countTokens = async (input: unknown[], tools: object[]) => { seen.push(JSON.stringify([input, tools])); return Math.ceil(Buffer.byteLength(JSON.stringify([input, tools])) / 4); };
+    const result = await fitContext({ messages, max_input_tokens: 2000 }, { countTokens });
+    expect(result.tokens.method).toBe('provider');
+    expect(result.tokens.input_tokens).toBeLessThanOrEqual(2000);
+    expect(new Set(seen).size).toBe(seen.length);
+    // The unoptimized loop measured the initial prompt, each omission and each shortening step (4 calls here).
+    expect(seen.length).toBeLessThanOrEqual(2);
+  });
+  it('measures summarizer chunks only near the input budget', async () => {
+    const request = fixture();
+    request.history[2]!.content = 'Long requirement. '.repeat(4000);
+    let counts = 0;
+    const summarizer = { ...deterministicSummarizer, countTokens: async (input: unknown[]) => { counts++; return Math.ceil(Buffer.byteLength(JSON.stringify(input)) / 4); } };
+    const result = await prepareContext({ ...request, policy: { summarizer_input_tokens: 2000 } }, { summarizer });
+    expect(result.compacted).toBe(true);
+    // The unoptimized loop measured every halving step of every chunk (105 calls here); clearly oversized steps are now skipped.
+    expect(counts).toBeLessThanOrEqual(80);
+  });
   it('fails rather than shorten protected tool results or hide oversized tool schemas', async () => {
     await expect(fitContext({ messages, max_input_tokens: 2000, protected_indices: [7] })).rejects.toThrow('BUDGET');
     await expect(fitContext({ messages, tools: [{ description: 'z'.repeat(50000) }], max_input_tokens: 2000 })).rejects.toThrow('BUDGET');

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ChatMessageSchema, PrepareRequestSchema, PrepareResultSchema, type PrepareRequest, type PrepareResult, type Adapters,
-  type ChatMessage, type Checkpoint, type Message, type Summary, type Policy } from './contracts.js';
+  type ChatMessage, type Checkpoint, type Message, type Summary, type Policy, type TokenCounter } from './contracts.js';
 import { canonical, checkpointDigest, resolveSources, sha256, sourceDigest, tokenEstimate, validateCheckpoint, validateSummary } from './integrity.js';
 import { validateToolTransactions } from './compat.js';
 
@@ -25,6 +25,44 @@ async function count(messages: ChatMessage[], tools: object[], adapters: Adapter
   if (measuredRequired) throw new Error('TOKENIZER_UNAVAILABLE: measured token count is required');
   return { value: tokenEstimate([messages, tools]), method: 'estimate' };
 }
+type Count = { value: number; method: 'provider' | 'estimate' };
+const memoizedCounters = new WeakSet<TokenCounter>();
+/** Remembers provider counts for identical input within one operation, so the same prompt is never measured twice. */
+function memoize(adapters: Adapters): Adapters {
+  const counter = adapters.countTokens;
+  if (!counter || memoizedCounters.has(counter)) return adapters;
+  const cache = new Map<string, number | null>();
+  const memoized: TokenCounter = async (messages, tools, signal) => {
+    const key = sha256(JSON.stringify([messages, tools]));
+    if (cache.has(key)) return cache.get(key)!;
+    const value = await counter(messages, tools, signal);
+    cache.set(key, value);
+    return value;
+  };
+  memoizedCounters.add(memoized);
+  return { ...adapters, countTokens: memoized };
+}
+/**
+ * Counts against a budget with as few provider calls as possible. After one provider measurement it scales the local
+ * estimate by the observed provider-to-estimate ratio; input predicted to be more than 25% over the limit is treated as
+ * over without a call. Anything near or under the limit is always measured, so a fit is never decided by an estimate.
+ */
+function meter(adapters: Adapters, measuredRequired: boolean) {
+  const memoized = memoize(adapters);
+  let ratio: number | null = null;
+  return {
+    async measure(messages: ChatMessage[], tools: object[]): Promise<Count> {
+      const counted = await count(messages, tools, memoized, measuredRequired);
+      if (counted.method === 'provider') ratio = counted.value / tokenEstimate([messages, tools]);
+      return counted;
+    },
+    clearlyOver(messages: ChatMessage[], tools: object[], limit: number): boolean {
+      return ratio !== null && tokenEstimate([messages, tools]) * ratio > limit * 1.25;
+    }
+  };
+}
+/** Cuts `text` to at most `end` code units without splitting a surrogate pair. */
+const cut = (text: string, end: number): string => text.slice(0, end < text.length && /[\uD800-\uDBFF]/.test(text.charAt(end - 1)) ? end - 1 : end);
 function assertSources(request: PrepareRequest): void {
   const all = [...request.history, ...request.current];
   const ids = new Set(all.map(message => message.id));
@@ -90,6 +128,9 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
   let calls = 0;
   let pending: Array<{ message_id: string; start: number; end: number; text: string }> = [];
   const allowed = new Set([...request.checkpoint?.source_message_ids ?? [], ...messages.map(message => message.id)]);
+  const budget = request.policy.summarizer_input_tokens;
+  const tokens = meter({ ...(summarizer.countTokens ? { countTokens: summarizer.countTokens } : {}), signal }, request.policy.require_measured_tokens);
+  const rendered = (text: string): ChatMessage[] => summarizer.renderInput?.(text) ?? [{ role: 'user', content: text }];
   const flush = async (): Promise<void> => {
     if (!pending.length) return;
     const basePrompt = prompt(request, summary, pending);
@@ -111,9 +152,7 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
           validation_error: error instanceof Error ? error.message.slice(0, 1000) : 'Invalid summary',
           repair_instruction: 'Correct the rejected candidate. Retained prior item IDs require identical complete item bodies; changed facts require new IDs. Preserve supported corrections and unfinished work. Return only valid JSON.',
           rejected_candidate: output });
-        const counted = await count(summarizer.renderInput?.(inputPrompt) ?? [{ role: 'user', content: inputPrompt }], [],
-          { ...(summarizer.countTokens ? { countTokens: summarizer.countTokens } : {}), signal }, request.policy.require_measured_tokens);
-        if (counted.value > request.policy.summarizer_input_tokens) throw error;
+        if (tokens.clearlyOver(rendered(inputPrompt), [], budget) || (await tokens.measure(rendered(inputPrompt), [])).value > budget) throw error;
       }
     }
   };
@@ -123,14 +162,13 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
     do {
       signal.throwIfAborted();
       if (++calls > request.policy.max_passes * 64) throw new Error('CONTEXT_BUDGET_EXCEEDED: summarization work limit reached');
-      let end = Math.min(content.length, start + request.policy.summarizer_input_tokens * 2);
+      let end = Math.min(content.length, start + budget * 2);
       if (end < content.length && /[\uD800-\uDBFF]/.test(content.charAt(end - 1))) end--;
       let text = '';
       for (;;) {
         text = prompt(request, summary, [...pending, { message_id: message.id, start, end, text: content.slice(start, end) }]);
-        const counted = await count(summarizer.renderInput?.(text) ?? [{ role: 'user', content: text }], [],
-          { ...(summarizer.countTokens ? { countTokens: summarizer.countTokens } : {}), signal }, request.policy.require_measured_tokens);
-        if (counted.value <= request.policy.summarizer_input_tokens) break;
+        const candidate = rendered(text);
+        if (!tokens.clearlyOver(candidate, [], budget) && (await tokens.measure(candidate, [])).value <= budget) break;
         if (pending.length) { await flush(); continue; }
         if (end - start <= 1) throw new Error('CONTEXT_BUDGET_EXCEEDED: summary and summarizer instructions exceed input budget');
         end = start + Math.max(1, Math.floor((end - start) / 2));
@@ -144,8 +182,9 @@ async function summarize(request: PrepareRequest, previous: Summary, messages: M
   await flush();
   return summary;
 }
-export async function prepareContext(value: unknown, adapters: Adapters = {}): Promise<PrepareResult> {
+export async function prepareContext(value: unknown, given: Adapters = {}): Promise<PrepareResult> {
   const request = PrepareRequestSchema.parse(value);
+  const adapters = memoize(given);
   assertSources(request);
   adapters.signal?.throwIfAborted();
   let checkpoint = request.checkpoint ? validateCheckpoint(request.checkpoint, request.history, request.namespace) : null;
@@ -226,32 +265,43 @@ export async function fitContext(value: unknown, adapters: Adapters = {}): Promi
   }
   const changes: PrepareResult['changes'] = [];
   const build = (): ChatMessage[] => blocks.flatMap(block => block.messages);
-  let measured = await count(build(), request.tools, adapters, request.require_measured_tokens);
-  while (measured.value > request.max_input_tokens) {
+  const tokens = meter(adapters, request.require_measured_tokens);
+  const limit = request.max_input_tokens;
+  // `measured` is null while the current messages are known to be clearly over the limit without a provider call.
+  let measured: Count | null = await tokens.measure(build(), request.tools);
+  let over = measured.value > limit;
+  const remeasure = async (): Promise<void> => {
+    const messages = build();
+    if (tokens.clearlyOver(messages, request.tools, limit)) { measured = null; over = true; return; }
+    measured = await tokens.measure(messages, request.tools);
+    over = measured.value > limit;
+  };
+  while (over) {
     const transactions = blocks.filter(block => block.transaction);
     const removable = transactions.slice(0, -1).find(block => block.indices.every(index => !protectedIndices.has(index)));
     if (!removable) break;
     blocks.splice(blocks.indexOf(removable), 1);
     changes.push({ action: 'omitted', message_ids: removable.indices.map(String), source_sha256: sha256(canonical(removable.messages)) });
-    measured = await count(build(), request.tools, adapters, request.require_measured_tokens);
+    await remeasure();
   }
-  if (measured.value > request.max_input_tokens) {
+  if (over) {
     shorten: for (const block of blocks) for (let offset = 0; offset < block.messages.length; offset++) {
       // Shorten only as many results as the budget needs; later results stay intact once the prompt fits.
-      if (measured.value <= request.max_input_tokens) break shorten;
+      if (!over) break shorten;
       const message = block.messages[offset]!;
       const index = block.indices[offset]!;
       if (message.role !== 'tool' || protectedIndices.has(index) || !message.content || message.content.length < 512) continue;
       const digest = sha256(message.content);
       const original = message.content;
       for (let length = Math.min(8000, Math.floor(original.length / 2)); length >= 128; length = Math.floor(length / 2)) {
-        message.content = JSON.stringify({ truncated: true, source_sha256: digest, excerpt: original.slice(0, length) });
-        measured = await count(build(), request.tools, adapters, request.require_measured_tokens);
-        if (measured.value <= request.max_input_tokens) break;
+        message.content = JSON.stringify({ truncated: true, source_sha256: digest, excerpt: cut(original, length) });
+        await remeasure();
+        if (!over) break;
       }
       changes.push({ action: 'truncated', message_ids: [String(index)], source_sha256: digest });
     }
   }
-  if (measured.value > request.max_input_tokens) throw new Error('CONTEXT_BUDGET_EXCEEDED: immutable content or tool schemas cannot fit');
-  return { messages: build(), tokens: { input_tokens: measured.value, max_input_tokens: request.max_input_tokens, method: measured.method }, changes };
+  measured ??= await tokens.measure(build(), request.tools);
+  if (measured.value > limit) throw new Error('CONTEXT_BUDGET_EXCEEDED: immutable content or tool schemas cannot fit');
+  return { messages: build(), tokens: { input_tokens: measured.value, max_input_tokens: limit, method: measured.method }, changes };
 }
