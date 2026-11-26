@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Dependabot now opens one grouped weekly pull request (group `hivemagnus`) for `@hivemagnus/*` package updates, so suite package bumps arrive together. Repository configuration only; nothing to do when upgrading.
+
 ## Hermes Plugin 0.2.0 - 2026-11-26
 
 - The plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy.
