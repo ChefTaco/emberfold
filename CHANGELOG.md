@@ -2,7 +2,17 @@
 
 ## Unreleased
 
-- The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
+## Hermes Plugin 0.2.0 - 2026-11-26
+
+- The plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy.
+- The plugin requires Node `^24.22.3` or `^26.13.1` (previously `^24.22.1` or `^26.13.0`), matching the core packages' patched-runtime floor.
+
+### Upgrade notes
+
+- After installing 0.2.0 (`hermes plugins install ... --ref COMMIT --force --enable`), reinstall the plugin's pinned lockfile with `hermes emberfold setup --install-deps`; otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
+- Hosts on an older Node patch get `NODE_UNSUPPORTED: require ^24.22.3 or ^26.13.1`; upgrade Node first.
+- No Hermes state or database migration: Hermes still owns transcripts and compression commits, and the plugin's private indexes are recoverable derived state. To roll back, reinstall 0.1.1 at its release commit with `--force` and restore its Node dependencies; never restore an old database.
+- This release pins core 0.4.0, not 0.5.0; no core package or image is republished.
 
 ## [0.5.0] - 2026-11-26
 

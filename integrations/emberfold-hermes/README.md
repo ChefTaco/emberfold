@@ -12,16 +12,17 @@ interfaces. The first verified runtime is Hermes `cabaf053b5b42885a9b11827925473
 Install Node `^24.22.3` or `^26.13.1`. No root privileges or Docker are required.
 
 ```bash
-hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref 416b6fb66149ac17fbca54cb46ec79f39214d647 --enable
+hermes plugins install ChefTaco/emberfold/integrations/emberfold-hermes --ref FULL_RELEASE_COMMIT --enable
 hermes emberfold setup
 hermes emberfold status --json
 ```
 
-This pins [plugin 0.1.1](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1),
-which uses `@hivemagnus/emberfold@0.1.0`. The next plugin release pins core 0.4.0,
-which fixes the over-truncation of later tool results and reports provider
-failures with stable codes. Plugin and core versions are independent;
-use 0.1.1 rather than the superseded Hermes plugin 0.1.0. Future pins must be
+Replace `FULL_RELEASE_COMMIT` with the full commit of the
+[plugin 0.2.0](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.2.0)
+release, which uses `@hivemagnus/emberfold@0.4.0`: later tool results are no
+longer over-truncated and provider failures carry stable codes. Plugin and core
+versions are independent; use 0.2.0 rather than the superseded plugins 0.1.1 and
+0.1.0. Pins must be
 reviewed **40-character commits**, not tags or branches. Accept Hermes's separate
 Node dependency question during installation. If dependencies were skipped, run
 `hermes emberfold setup --install-deps` to explicitly install the pinned lockfile.
