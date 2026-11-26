@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { once } from 'node:events';
 import { connect } from 'node:net';
+import { encodeExecutionHeader } from '@hivemagnus/hive-common/execution';
 import { createEmberfoldServer } from '../packages/server/src/index.js';
-import { fixture } from './fixtures.js';
+import { deterministicSummarizer, fixture } from './fixtures.js';
 
 const token = 'synthetic-test-bearer-token-for-fixtures-only';
 const servers: Server[] = [];
@@ -102,6 +103,82 @@ describe('authenticated stateless HTTP wrapper', () => {
       const response = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), provider_id }) });
       expect([provider_id, response.status, await response.json()]).toEqual([provider_id, 422, { error }]);
     }
+  });
+  it('serves suite health paths and matches routes by path, ignoring the query string', async () => {
+    const { url } = await serve();
+    expect(await (await fetch(url + '/healthz?probe=1')).json()).toEqual({ status: 'ok', version: '0.4.0' });
+    expect((await fetch(url + '/readyz?probe=1')).status).toBe(200);
+    const live = await fetch(url + '/health/live');
+    expect([live.status, await live.json()]).toEqual([200, expect.objectContaining({ status: 'live', service: 'emberfold', version: '0.4.0' })]);
+    const ready = await fetch(url + '/health/ready');
+    expect([ready.status, await ready.json()]).toEqual([200, expect.objectContaining({ status: 'ready', checks: { accepting: expect.objectContaining({ status: 'up' }) } })]);
+    expect((await fetch(url + '/health/ready', { headers: { Origin: 'https://example.com' } })).status).toBe(403);
+    expect((await fetch(url + '/v1/prepare?trace=1', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), dry_run: true }) })).status).toBe(200);
+    expect((await fetch(url + '/v1/prepare/extra', { method: 'POST', headers, body: '{}' })).status).toBe(404);
+  });
+  it('recalls original messages by ID', async () => {
+    const { url } = await serve();
+    const request = fixture();
+    const response = await fetch(url + '/v1/recall', { method: 'POST', headers, body: JSON.stringify({ history: request.history, message_ids: ['user-0'] }) });
+    expect([response.status, await response.json()]).toEqual([200, { messages: [request.history[0]] }]);
+    const missing = await fetch(url + '/v1/recall', { method: 'POST', headers, body: JSON.stringify({ history: request.history, message_ids: ['absent'] }) });
+    expect([missing.status, await missing.json()]).toEqual([422, { error: 'SOURCE_UNAVAILABLE' }]);
+    expect((await fetch(url + '/v1/recall', { method: 'POST', body: '{}' })).status).toBe(401);
+  });
+  it('echoes request IDs and logs request, trace and execution attribution', async () => {
+    const { url, logs } = await serve();
+    const execution = encodeExecutionHeader({ v: 1, root: 'hx1:ardent:example-node.default:task:synthetic-task', self: 'hx1:ardent:example-node.default:step:synthetic-task/1' })!;
+    const response = await fetch(url + '/v1/prepare?secret=query', { method: 'POST', body: JSON.stringify({ ...fixture(), dry_run: true }),
+      headers: { ...headers, 'X-Request-Id': 'synthetic-request-1', 'X-Hive-Execution': execution } });
+    expect(response.headers.get('x-request-id')).toBe('synthetic-request-1');
+    const generated = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' });
+    expect(generated.headers.get('x-request-id')).toMatch(/.+/);
+    expect(logs[0]).toEqual({ event: 'request', operation: '/v1/prepare', status: 200, duration_ms: expect.any(Number), request_id: 'synthetic-request-1',
+      trace_id: expect.stringMatching(/^[0-9a-f]{32}$/), execution: { root: 'hx1:ardent:example-node.default:task:synthetic-task', self: 'hx1:ardent:example-node.default:step:synthetic-task/1' } });
+    expect(logs[1]).toMatchObject({ status: 400, error: 'INVALID_REQUEST', request_id: generated.headers.get('x-request-id') });
+    expect(JSON.stringify(logs)).not.toContain('secret=query');
+  });
+  it('exposes authenticated Prometheus metrics for requests, compactions and provider failures', async () => {
+    const provider = createServer((request, response) => { request.resume(); response.statusCode = 503; response.end(); });
+    servers.push(provider);
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    const address = provider.address();
+    if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
+    const { url } = await serve({ providers: [{ type: 'http', id: 'down', base_url: `http://127.0.0.1:${address.port}/v1`, model: 'fixture' }] });
+    expect((await fetch(url + '/metrics')).status).toBe(401);
+    await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), dry_run: true }) });
+    await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify({ ...fixture(), provider_id: 'down' }) });
+    await fetch(url + '/v1/recall', { method: 'POST', body: '{}' });
+    const metrics = await fetch(url + '/metrics', { headers: { Authorization: `Bearer ${token}` } });
+    expect(metrics.headers.get('content-type')).toContain('text/plain; version=0.0.4');
+    const text = await metrics.text();
+    expect(text).toContain('emberfold_requests_total{operation="/v1/prepare",status="200"} 1');
+    expect(text).toContain('emberfold_requests_total{operation="/v1/prepare",status="422"} 1');
+    expect(text).toContain('emberfold_requests_total{operation="/v1/recall",status="401"} 1');
+    expect(text).toContain('emberfold_provider_failures_total{code="PROVIDER_FAILED"} 1');
+    expect(text).toContain('emberfold_request_duration_seconds_count{operation="/v1/prepare"} 2');
+    expect(text).toContain('emberfold_requests_in_flight 0');
+    expect(text).toContain('emberfold_ready 1');
+    expect(text).not.toContain('/metrics');
+  });
+  it('counts compactions', async () => {
+    const provider = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(chunk as Buffer);
+      const body = JSON.parse(Buffer.concat(chunks).toString()) as { messages: Array<{ content: string }> };
+      const summary = await deterministicSummarizer.summarize({ prompt: body.messages.at(-1)!.content, output_tokens: 128, signal: AbortSignal.timeout(5000) });
+      response.setHeader('Content-Type', 'application/json');
+      response.end(JSON.stringify({ choices: [{ message: { content: summary } }] }));
+    });
+    servers.push(provider);
+    await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
+    const address = provider.address();
+    if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
+    const { url } = await serve({ default_provider_id: 'local', providers: [{ type: 'http', id: 'local', base_url: `http://127.0.0.1:${address.port}/v1`, model: 'fixture' }] });
+    const response = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: JSON.stringify(fixture()) });
+    expect(await response.json()).toMatchObject({ compacted: true });
+    const text = await (await fetch(url + '/metrics', { headers: { Authorization: `Bearer ${token}` } })).text();
+    expect(text).toContain('emberfold_compactions_total{operation="/v1/prepare"} 1');
   });
   it('fails startup for missing or weak authentication and invalid provider configuration', () => {
     expect(() => createEmberfoldServer({}, {})).toThrow('bearer token');

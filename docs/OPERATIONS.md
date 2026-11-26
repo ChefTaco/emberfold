@@ -69,6 +69,21 @@ IDs are accepted. Remote access requires a TLS reverse proxy; the host-side
 container port is bound to loopback. Health probes reveal no prompts or secrets.
 Default limits: 16 MiB request body, two concurrent requests, 120-second deadline.
 
+Unauthenticated health follows the suite paths `/health/live` and `/health/ready`
+(the original `/healthz` and `/readyz` bodies are unchanged). Every response carries
+`X-Request-Id`, taken from the caller's `X-Request-Id` when valid. The service logs one
+JSON line per API request on stderr with the operation, status, duration, request and
+trace IDs, the error code if any, and the caller's `x-hive-execution` attribution
+(`root`, `parent`, `self`) when present. Attribution is never authority. Bodies,
+tokens and query strings are not logged.
+
+`GET /metrics` requires the service bearer token (in Prometheus, use
+`authorization: { credentials_file: ... }`). It exports
+`emberfold_requests_total{operation,status}`, the
+`emberfold_request_duration_seconds` histogram, `emberfold_compactions_total`,
+`emberfold_provider_failures_total{code}`, `emberfold_requests_in_flight` and
+`emberfold_ready`. Counters reset when the process restarts.
+
 `npm run deploy -- preflight` reads the ignored root `.env` using
 `DEPLOY_HOST`, `DEPLOY_USERNAME`, and `DEPLOY_PASSWORD`; optional `DEPLOY_PORT` and
 `DEPLOY_TLS_PORT` (defaults `8096` and `8097`) set the service and TLS ports. Passwords travel on
