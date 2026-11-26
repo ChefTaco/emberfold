@@ -158,13 +158,13 @@ unchanged. Configuration and plugin-version rollback never discard newer message
 The library, JSON CLI, and service are at `0.5.0`; the service image is a
 linux/amd64 and linux/arm64 index with a build provenance attestation. Its
 runtime stage ships only Node: npm, npx, Corepack, Yarn, and apt are removed,
-so install nothing inside a running container. Hermes plugin `0.1.1` is
-published independently as
-[`hermes-v0.1.1`](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.1.1)
-at `416b6fb66149ac17fbca54cb46ec79f39214d647`, with an exact core `0.1.0`
+so install nothing inside a running container. Hermes plugin `0.2.0` is published independently as
+[`hermes-v0.2.0`](https://github.com/ChefTaco/emberfold/releases/tag/hermes-v0.2.0)
+at `f77445764f57482bc5a7f14bbd5e1d5aa4c95401`, with an exact core `0.4.0`
 dependency. Use that release's copy-ready full-commit installation instructions,
-metadata, archive, and SHA-256 checksums. Hermes plugin `0.1.0` is superseded for
-gateway adoption; its immutable tag and artifacts remain available.
+metadata, archive, and SHA-256 checksums, then reinstall the pinned lockfile
+(`hermes emberfold setup --install-deps`). Hermes plugins `0.1.1` and `0.1.0` are
+superseded; their immutable tags and artifacts remain available.
 
 For another plugin release, verify both supported Node lines, Plugin Doctor,
 Hermes validation, packaged installation, and model-backed native acceptance.
