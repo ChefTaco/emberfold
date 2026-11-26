@@ -1,5 +1,5 @@
 name: emberfold-hermes
-version: "0.1.1"
+version: "0.2.0"
 description: Local, source-addressable context continuity with protected passages and recoverable checkpoints
 author: ChefTaco
 license: Apache-2.0
