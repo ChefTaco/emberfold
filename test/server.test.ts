@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import { once } from 'node:events';
 import { connect } from 'node:net';
@@ -67,6 +67,8 @@ describe('authenticated stateless HTTP wrapper', () => {
     } finally { socket.destroy(); }
     for (let attempt = 0; attempt < 4; attempt++)
       expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: 'x'.repeat(200000) })).status).toBe(413);
+    // The log line is written once the server finishes the request, which can be just after the client has its answer.
+    await vi.waitFor(() => expect(logs).toHaveLength(6));
     expect(logs.map(record => record.status)).toEqual([413, 400, 413, 413, 413, 413]);
   });
   it('closes an oversized upload that stalls and frees its capacity', async () => {
@@ -80,6 +82,7 @@ describe('authenticated stateless HTTP wrapper', () => {
       await once(socket, 'close');
       expect(received.slice(0, 12)).toBe('HTTP/1.1 413');
     } finally { socket.destroy(); }
+    await vi.waitFor(() => expect(logs).toHaveLength(1));
     expect(logs.map(record => record.status)).toEqual([413]);
     expect((await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' })).status).toBe(400);
   });
@@ -133,6 +136,7 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect(response.headers.get('x-request-id')).toBe('synthetic-request-1');
     const generated = await fetch(url + '/v1/prepare', { method: 'POST', headers, body: '{' });
     expect(generated.headers.get('x-request-id')).toMatch(/.+/);
+    await vi.waitFor(() => expect(logs).toHaveLength(2));
     expect(logs[0]).toEqual({ event: 'request', operation: '/v1/prepare', status: 200, duration_ms: expect.any(Number), request_id: 'synthetic-request-1',
       trace_id: expect.stringMatching(/^[0-9a-f]{32}$/), execution: { root: 'hx1:ardent:example-node.default:task:synthetic-task', self: 'hx1:ardent:example-node.default:step:synthetic-task/1' } });
     expect(logs[1]).toMatchObject({ status: 400, error: 'INVALID_REQUEST', request_id: generated.headers.get('x-request-id') });
