@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
+
+## [0.5.0] - 2026-11-26
+
+### Upgrade notes
+
+- No database, schema or state migrations: the library, CLI and service are stateless, so a Hive suite upgrade needs no `--allow-migrations` for Emberfold.
+- An `http` provider with `api_key_env` must use an `https:` URL unless the host is loopback, or the service and CLI fail at startup with `Invalid provider URL: a provider credential requires HTTPS unless the host is loopback`. Move the provider behind TLS or reach it through a loopback tunnel or proxy.
+- The Codex child process receives only the allowlisted environment. Move any other variable your Codex setup needs into Codex's own configuration or a `CODEX_*` name.
+- Service request logs are HiveCommon JSON records (`time`, `level`, `msg`, `service`, `request_id`, `trace_id`, `error`) and record the matched route instead of the raw URL. Update log parsers that read the old fields only. `/healthz` and `/readyz` are unchanged; `/health/live`, `/health/ready` and authenticated `GET /metrics` are new.
+- Oathweave service tokens are opt-in through the new `oathweave` configuration block; without it authentication is unchanged.
+- Downgrade to 0.4.0 is safe after removing any `oathweave` block (0.4.0 rejects unknown configuration keys); 0.4.0 again accepts credentialed plain-HTTP providers and passes Codex the full environment. Callers of `POST /v1/recall` or `/metrics` lose those endpoints.
+- The Hermes plugin is released separately; this release does not change any installed `hermes-v*` plugin.
+
 ### Security
 
 - An `http` provider that sends a credential (`api_key_env`) now requires an `https:` URL unless the host is loopback (`localhost`, `127.0.0.0/8`, `[::1]`). Previously the Bearer token was sent over plain HTTP to any host. **Upgrade note:** a configuration such as `"base_url": "http://model.example.com:8000/v1"` with `api_key_env` now fails at startup with `Invalid provider URL: a provider credential requires HTTPS unless the host is loopback`; move the provider behind TLS, or reach it through a loopback tunnel or proxy. Providers without a credential are unchanged.
@@ -19,12 +33,12 @@
 - `fitContext` no longer splits a surrogate pair when it shortens a tool result.
 - With a provider tokenizer, identical input is measured once per operation, and candidate prompts that the local estimate (scaled by the last measured ratio) puts more than 25% over budget are rejected without a provider call. A fit is still always decided by a measurement. This removes most tokenizer round trips while halving summarizer chunks and shortening tool results.
 - `npm test` builds the workspace first, so a stale `dist/` no longer makes local test runs fail.
-- The Hermes plugin now pins `@hivemagnus/emberfold@0.4.0` instead of 0.1.0, so its context preparation gets the 0.4.0 fixes (later tool results of 512 characters or more are no longer over-truncated, provider failures carry stable codes). The plugin reads the expected engine version from its own `package.json` rather than a hard-coded copy. The next `hermes-v*` release carries this; upgrade notes: reinstall the plugin's pinned lockfile (`hermes emberfold setup --install-deps`), otherwise the plugin refuses to start with `DEPENDENCY_VERSION_MISMATCH`.
 - The Ardent compatibility gate in CI now checks Ardent 3.3.0, the shipping consumer, instead of the 2.1.1 extraction commit, and keeps every `@types/*` package Ardent declares so its full typecheck runs.
 - The service matches routes by path, so `/healthz?probe=1` answers instead of returning 401, and a query string on an API path no longer gives 404. Request logs record the matched route instead of the raw URL, so query strings are never logged.
 
 ### Changed
 
+- Documentation checked against the source: AGENTS, README and operations guidance, and the current Ardent release's exact `@hivemagnus/emberfold` pin.
 - Request log lines now come from HiveCommon's logger (`time`, `level`, `msg`, `service` fields added, secrets redacted) and carry `request_id`, `trace_id` and, on failure, `error`. A custom `log` sink passed to `createEmberfoldServer` receives the same record fields as before plus these. The `/healthz` and `/readyz` bodies are unchanged.
 - Summarizer excerpts now carry the message `role`, and on a message's first excerpt its `tool_call_id` and a bounded rendering of its `tool_calls` (at most 16 calls, each with its ID, function name and arguments cut to 512 characters; `tool_calls_omitted` counts the rest). Previously the summarizer saw only message text, so it could not tell user, assistant and tool text apart, and the calls an assistant made were dropped. When a message's calls cannot fit the summarizer input budget, only the call IDs and names are kept. The evaluation adds a tool-call scenario whose answer exists only in a tool call. Custom summarizers that parse the prompt see the new optional fields; existing fields are unchanged.
 

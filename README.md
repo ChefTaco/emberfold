@@ -23,7 +23,7 @@ suite's `full` profile runs the service image; the library and CLI work on their
 
 ## Install
 
-The three packages are published on npm at the same version (currently `0.4.0`):
+The three packages are published on npm at the same version (currently `0.5.0`):
 
 ```bash
 npm install @hivemagnus/emberfold            # library

@@ -57,7 +57,7 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
   let closing = false;
   const requests = new Set<AbortController>();
   const metrics = createServiceMetrics();
-  const health = createHealth({ service: 'emberfold', version: '0.4.0',
+  const health = createHealth({ service: 'emberfold', version: '0.5.0',
     checks: [{ name: 'accepting', check: () => ({ ok: !closing, details: { providers_configured: providers.size } }) }] });
   const send = (response: ServerResponse, status: number, body: unknown): void => {
     if (!response.destroyed && !response.writableEnded) {
@@ -70,7 +70,7 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
     if (request.headers.origin) { send(response, 403, { error: 'ORIGIN_REJECTED' }); return; }
     const path = pathOf(request);
     // Health answers by path, whatever the query string. The original `/healthz` and `/readyz` bodies are kept.
-    if (request.method === 'GET' && path === '/healthz') { send(response, 200, { status: 'ok', version: '0.4.0' }); return; }
+    if (request.method === 'GET' && path === '/healthz') { send(response, 200, { status: 'ok', version: '0.5.0' }); return; }
     if (request.method === 'GET' && path === '/readyz') { send(response, closing ? 503 : 200, { ready: !closing, providers_configured: providers.size }); return; }
     if (await handleHealth(request, response, health)) return;
     const route = Routes.find(candidate => candidate === path);
