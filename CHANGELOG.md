@@ -4,6 +4,7 @@
 
 ### Changed
 
+- The service uses `@hivemagnus/hive-common` 0.10.0 (was 0.7.0) and its `/secrets` `matchesSha256Digest()` for the static bearer check instead of its own constant-time comparison. The check is unchanged: the whole `Authorization` header must be exactly `Bearer <token>`, compared digest against digest. HiveCommon 0.8.0 to 0.10.0 only add exports, so nothing to do when upgrading.
 - Dependabot now opens one grouped weekly pull request (group `hivemagnus`) for `@hivemagnus/*` package updates, so suite package bumps arrive together. Repository configuration only; nothing to do when upgrading.
 
 ## Hermes Plugin 0.2.0 - 2026-11-26
