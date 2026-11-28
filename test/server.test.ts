@@ -27,6 +27,13 @@ describe('authenticated stateless HTTP wrapper', () => {
     expect((await fetch(url + '/healthz', { headers: { Origin: 'https://example.com' } })).status).toBe(403);
     expect(await (await fetch(url + '/readyz')).json()).toMatchObject({ ready: true });
   });
+  it('accepts only the exact static bearer header', async () => {
+    const { url } = await serve();
+    const status = async (authorization: string) => (await fetch(url + '/metrics', { headers: { Authorization: authorization } })).status;
+    expect(await status(`Bearer ${token}`)).toBe(200);
+    for (const authorization of [`bearer ${token}`, `Bearer  ${token}`, `Bearer ${token}x`, `Bearer ${token.slice(0, -1)}`, token, 'Bearer ', ''])
+      expect([authorization, await status(authorization)]).toEqual([authorization, 401]);
+  });
   it('returns prepared JSON matching library behavior and never logs bodies or tokens', async () => {
     const { url, logs } = await serve();
     const request = { ...fixture(), dry_run: true };

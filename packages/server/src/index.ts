@@ -1,11 +1,11 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { createRequestContext, runWithRequestContext, type RequestContext } from '@hivemagnus/hive-common/context';
 import { createHealth } from '@hivemagnus/hive-common/health';
 import { createLogger } from '@hivemagnus/hive-common/log';
 import { handleHealth } from '@hivemagnus/hive-common/node-http';
 import { createOathweaveVerifier, isOathweaveError } from '@hivemagnus/hive-common/oathweave';
+import { matchesSha256Digest } from '@hivemagnus/hive-common/secrets';
 import { prepareContext, rebuildCheckpoint, validateCheckpoint, resolveSources, PrepareRequestSchema, ValidationRequestSchema, RecallRequestSchema,
   sha256 } from '@hivemagnus/emberfold';
 import { ServiceConfigSchema, configureProviders, requestAdapters, type ServiceConfig } from './config.js';
@@ -40,9 +40,10 @@ export function createEmberfoldServer(value: Partial<ServiceConfig> = {}, env: N
   const oathweave = config.oathweave;
   const verifier = oathweave ? createOathweaveVerifier({ issuer: oathweave.issuer, audience: oathweave.audience, jwksUrl: oathweave.jwks_url,
     accept: 'service', ...(oathweave.native_issuers ? { nativeIssuers: oathweave.native_issuers } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) }) : undefined;
+  // The whole header is compared (exact `Bearer ` scheme and spacing), digest against digest, so neither length nor content leaks.
   const expected = sha256(`Bearer ${token}`);
   const authenticate = async (header: string | undefined): Promise<Caller | { status: 401 | 403 | 503; error: string }> => {
-    if (timingSafeEqual(Buffer.from(sha256(header ?? '')), Buffer.from(expected))) return { kind: 'static' };
+    if (matchesSha256Digest(header, expected)) return { kind: 'static' };
     if (!verifier || !header) return { status: 401, error: 'UNAUTHORIZED' };
     try {
       const principal = await verifier.verifyAuthorization(header, { accept: 'service' });
